@@ -1,0 +1,53 @@
+# Python and local tools
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.vscode/
+.idea/
+
+# Environment and secrets (only the example is safe to track)
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Local database, documents, generated output, and logs
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.sqlite-*
+*.db
+*.db-*
+media/
+staticfiles/
+data/
+taxpayer_data/
+working/
+generated/
+backups/
+logs/
+*.log
+*.pdf
+*.xml
+*.docx
+*.xlsx
+*.xls
+*.csv
+*.zip
+
+# Worker credentials and journals are local data.
+worker/worker.json
+worker/journal*.json
+worker/result.json
+worker/stage2-journal*.json
+worker/stage2-result.json
+tools/caddy/
+worker/dashboard-root.crt

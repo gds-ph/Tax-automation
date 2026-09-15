@@ -1,0 +1,11 @@
+<div data-cor-digest="{{ digest }}">
+  <h3>{{ draft.initial.registered_name|default:draft.folder }}</h3>
+  <p class="small muted">TIN {{ draft.initial.tin1 }}-{{ draft.initial.tin2 }}-{{ draft.initial.tin3 }}-{{ draft.initial.tin4 }}</p>
+  <div class="client-cards">
+  {% for card in cards %}<section class="panel client-card">
+    <p class="eyebrow">{{ card.code }}</p><h2>{{ card.title }}</h2><p class="muted">{{ card.frequency|title }}</p>
+    {% if card.uncertain %}<p class="small muted">Needs review — unclear, historical or alternative entry.</p>{% endif %}
+    <a class="button secondary" href="{% url 'workorders:cor-review' draft_id %}">Review filing setup</a>
+  </section>{% empty %}<p>No filing rows could be identified. <a href="{% url 'workorders:cor-review' draft_id %}">Review certificate</a></p>{% endfor %}
+  </div>
+</div>

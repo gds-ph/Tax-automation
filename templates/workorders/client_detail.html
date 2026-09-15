@@ -1,0 +1,17 @@
+﻿{% extends 'base.html' %}
+{% block title %}{{ taxpayer.display_name }} · Forms{% endblock %}
+{% block content %}
+<a class="breadcrumb" href="{% url 'workorders:clients' %}">← Clients</a>
+<div class="page-heading"><div><p class="eyebrow">{{ taxpayer.client_code }}</p><h1>{{ taxpayer.display_name }}</h1><p class="muted">Choose a form to prepare a filing for this client.</p></div></div>
+{% if not taxpayer.is_active %}<div class="notice">This client is inactive. New tasks are unavailable.</div>{% endif %}
+<h2>Available forms</h2>
+{% if taxpayer.registration_setup %}<p class="small muted">COR setup reviewed {{ taxpayer.registration_setup.reviewed_at|date:'d M Y' }} · <a href="{% url 'workorders:directory-client' %}?name={{ taxpayer.registration_setup.folder|urlencode }}">Registration documents</a></p>{% endif %}
+{% if can_reset_demo %}<p><a class="button secondary" href="{% url 'workorders:reset-demo' taxpayer.pk %}">Reset 2026 test filings</a></p>{% endif %}
+<div class="client-cards">
+{% for profile in profiles %}<section class="panel client-card"><span class="eyebrow">{{ profile.form_definition.form_code }}</span><h2>{{ profile.form_definition.display_name }}</h2><p class="muted">{{ profile.form_definition.get_filing_frequency_display }}{% if profile.form_definition.form_version %} · {{ profile.form_definition.form_version }}{% endif %}</p>
+{% if profile.can_prepare %}{% if perms.workorders.add_workorder and perms.workorders.change_workorder and perms.workorders.view_workorder %}<a class="button primary" href="{% url 'workorders:client-prepare' taxpayer.pk profile.pk %}">Prepare {{ profile.form_definition.form_code }} →</a>{% else %}<p class="muted">View only</p>{% endif %}
+{% else %}<button class="button secondary" disabled>Not yet automated</button>{% endif %}</section>
+{% empty %}<section class="panel detail-section"><p>No active forms are configured for this client.</p></section>{% endfor %}
+</div>
+<section class="client-history"><h2>Recent tasks</h2>{% for order in orders %}<div class="panel task-row"><div><a href="{% url 'workorders:detail' order.pk %}">{{ order.form_code }} · {{ order.filing_year }}{% if order.filing_quarter %} · Q{{ order.filing_quarter }}{% endif %}</a><p class="small muted">{{ order.created_at|date:'d M Y, g:i A' }}</p></div><div class="task-review-actions"><span>{% if order.status == 'READY_TO_PREPARE' %}Queued locally{% else %}{{ order.get_status_display }}{% endif %}</span>{% if order.status == 'AWAITING_SUBMISSION_APPROVAL' %}<a class="button secondary" href="{% url 'workorders:detail' order.pk %}#submission-review">Review for approval</a>{% endif %}</div></div>{% empty %}<p class="muted">No tasks to display.</p>{% endfor %}</section>
+{% endblock %}

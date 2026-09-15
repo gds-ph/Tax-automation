@@ -1,0 +1,30 @@
+{
+	admin off
+	persist_config off
+	auto_https disable_redirects
+	skip_install_trust
+	storage file_system ./secrets/caddy
+	servers {
+		protocols h1 h2
+	}
+}
+
+https://192.168.8.148:8443 {
+	bind 192.168.8.148
+	tls internal
+	@worker {
+		remote_ip 192.168.14.135
+		path /api/agent/*
+	}
+	handle @worker {
+		request_body {
+			max_size 26MB
+		}
+		reverse_proxy 127.0.0.1:8001 {
+			header_up Host 127.0.0.1:8001
+		}
+	}
+	handle {
+		respond "Forbidden" 403
+	}
+}

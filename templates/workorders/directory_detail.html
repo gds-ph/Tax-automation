@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}{{ name }} · Registration files{% endblock %}
+{% block content %}
+<a class="breadcrumb" href="{% url 'workorders:clients' %}">← Clients</a>
+<div class="page-heading"><div><p class="eyebrow">Client directory</p><h1>{{ name }}</h1><p class="muted">Registration documents from this client's PERMANENT folders.</p></div></div>
+{% if setup %}<p class="button-row"><a class="button primary" href="{% url 'workorders:client-detail' setup.client_id %}">View filing forms →</a></p>{% else %}<div class="notice">The AI reads this client?s registration PDFs through the configured GDS provider and identifies filing cards automatically.</div>{% endif %}
+<h2>Filings from 2303</h2>
+{% if error %}<div class="notice" role="alert">{{ error }}</div>
+{% elif setup %}<p><a class="button primary" href="{% url 'workorders:client-detail' setup.client_id %}">View filing cards</a></p>
+{% elif perms.workorders.add_client and perms.workorders.add_clientfilingprofile and perms.workorders.view_clientfilingprofile and perms.workorders.view_formdefinition %}
+{% if incomplete %}<p class="notice">Some folders could not be fully searched. Results may be incomplete.</p>{% endif %}
+<p class="small muted">Reading registration documents automatically. Separate certificates remain separate; identical PDFs are shown once. Cards reflect the source document and may need review before preparation.</p>
+<div id="automatic-cor-cards">
+{% for file in files %}<section class="cor-auto-source" data-endpoint="{% url 'workorders:cor-read' %}" data-token="{{ file.token }}"><p class="notice" role="status">Waiting to read certificate {{ forloop.counter }}?</p></section>
+{% empty %}<p>No matching COR or 2303 PDFs found.</p>{% endfor %}
+</div>
+<form id="cor-auto-csrf" hidden>{% csrf_token %}</form>
+{% load static %}<script src="{% static 'cor-cards.js' %}" defer></script>
+{% else %}<p>Your account does not have permission to generate filing cards.</p>{% endif %}
+{% endblock %}

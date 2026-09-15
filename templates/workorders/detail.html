@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}{{ order.client_name }} · {{ filing.code }} · eBIR{% endblock %}
+{% block content %}
+{% if order.is_archived %}<div class="notice">Archived test filing. Retained for history; do not use its XML path for a new filing.</div>{% endif %}
+{% if order.client_id %}<a class="breadcrumb" href="{% url 'workorders:client-detail' order.client_id %}">Back to {{ order.client_name }} filings</a>{% else %}<a class="breadcrumb" href="{% url 'workorders:filing-orders' filing.slug %}">← {{ filing.code }} work orders</a>{% endif %}
+<div class="page-heading"><div><p class="eyebrow">{{ filing.code }} · Q{{ order.filing_quarter }} {{ order.filing_year }}</p><h1>{{ order.client_name }}</h1><p class="muted mono work-id">{{ order.work_order_id }}</p></div>{% if perms.workorders.change_workorder and order.status == 'DRAFT' or perms.workorders.change_workorder and order.status == 'READY_TO_PREPARE' %}<a class="button secondary" href="{% url 'workorders:edit' order.pk %}">Edit work order</a>{% endif %}</div>
+{% if action_error %}<div class="notice error" role="alert">{{ action_error }}</div>{% endif %}
+<section class="status-bar"><div>{% include 'workorders/status.html' with status=order.status label=order.get_status_display %}<span class="small muted">Version {{ order.version }} · Updated {{ order.updated_at|date:'d M Y, g:i A' }}</span></div>{% if perms.workorders.change_workorder %}{% if order.status == 'DRAFT' %}<form method="post" action="{% url 'workorders:ready' order.pk %}">{% csrf_token %}{{ transition_form }}<button class="button primary" type="submit">Mark ready to prepare →</button></form>{% elif order.status == 'READY_TO_PREPARE' %}<form method="post" action="{% url 'workorders:draft' order.pk %}">{% csrf_token %}{{ transition_form }}<button class="button secondary" type="submit">Return to draft</button></form>{% endif %}{% endif %}</section>
+{% if not order.zero_filing_approved %}<div class="notice">Zero filing has not been confirmed. {% if perms.workorders.change_workorder %}Edit this work order and confirm it before marking ready.{% endif %}</div>{% endif %}
+{% if order.status == 'READY_TO_PREPARE' %}<div class="notice">Queued. Waiting for the VM worker to claim this task.</div>{% endif %}
+{% if order.status == 'PROCESSING_PREPARATION' %}<div class="notice">Claimed by {{ order.agent_name }}. Lease expires {{ order.lease_expires_at|date:'d M Y, g:i A' }}. An expired lease requires operator review; tasks are not automatically rerun.</div>{% endif %}
+{% if order.status == 'AWAITING_SUBMISSION_APPROVAL' %}<div class="notice">Preparation results received. The PDF and XML result are recorded. Submission remains disabled.{% if perms.workorders.view_prepared_pdf %} <a href="{% url 'workorders:prepared-pdf' order.pk %}">Download protected review PDF</a>{% endif %}</div>{% endif %}
+{% if order.status == 'AWAITING_SUBMISSION_APPROVAL' and perms.workorders.view_prepared_pdf %}
+<section class="panel pdf-preview" aria-labelledby="pdf-preview-heading">
+  <div class="pdf-preview-toolbar">
+    <h2 id="pdf-preview-heading">Prepared PDF</h2>
+    <div class="pdf-preview-actions">
+      <a class="button secondary" href="{% url 'workorders:prepared-pdf' order.pk %}?inline=1" target="_blank" rel="noopener">Open in new tab</a>
+      <a class="button secondary" href="{% url 'workorders:prepared-pdf' order.pk %}">Download PDF</a>
+    </div>
+  </div>
+  <iframe class="pdf-preview-frame" title="Prepared filing PDF" src="{% url 'workorders:prepared-pdf' order.pk %}?inline=1#view=FitH"></iframe>
+  <p class="small muted">If the preview does not appear, open the PDF in a new tab or download it.</p>
+</section>
+{% endif %}
+{% if order.status == 'AWAITING_SUBMISSION_APPROVAL' %}
+<section id="submission-review" class="panel approval-panel" aria-labelledby="approval-heading">
+<h2 id="approval-heading">Stage 2 approval</h2>
+<p>Reopen the exact saved return and revalidate it in the VM. Actual BIR submission is disabled.</p>
+{% if order.stage2_approval %}
+<p><strong>{{ order.stage2_approval.state }}</strong></p>
+<p class="small muted">Approved by {{ order.stage2_approval.approved_by }} on {{ order.stage2_approval.approved_at }}. This filing has not been submitted.</p>
+{% elif perms.automation_api.approve_stage2 and perms.workorders.view_prepared_pdf %}
+<form method="post" action="{% url 'workorders:approve-stage2' order.pk %}">{% csrf_token %}
+<input type="hidden" name="version" value="{{ order.version }}"><input type="hidden" name="pdf_sha256" value="{{ order.prepared_pdf_sha256 }}">
+<div class="approval-preview-fields"><label for="approval-comment">Review notes (optional)</label><textarea id="approval-comment" name="comment" maxlength="2000" rows="2"></textarea></div>
+<button type="submit" class="button primary">Approve &amp; run Stage 2</button>
+</form>
+{% else %}<p>An authorized approver must approve this return before Stage 2 can run.</p>{% endif %}
+</section>
+{% endif %}
+<div class="detail-grid">
+  <section class="panel detail-section"><h2>Client details</h2><dl class="details"><dt>Registered name</dt><dd>{{ order.registered_name }}</dd><dt>Client reference</dt><dd>{{ order.legacy_client_reference|default:'—' }}</dd><dt>TIN</dt><dd class="mono">{{ order.tin1 }}-{{ order.tin2 }}-{{ order.tin3 }}-{{ order.tin4 }}</dd><dt>RDO code</dt><dd>{{ order.rdo_code }}</dd><dt>Address</dt><dd>{{ order.registered_address|linebreaksbr }}</dd><dt>ZIP code</dt><dd>{{ order.zip_code }}</dd><dt>Telephone</dt><dd>{{ order.telephone_number }}</dd><dt>Email</dt><dd>{{ order.email_address }}</dd><dt>Line of business</dt><dd>{{ order.line_of_business }}</dd></dl></section>
+  <section class="panel detail-section"><h2>Filing details</h2><dl class="details"><dt>Form</dt><dd>{{ filing.code }} · January 2018</dd><dt>Filing period</dt><dd>Q{{ order.filing_quarter }} {{ order.filing_year }}</dd><dt>Year basis</dt><dd>Calendar year · December</dd><dt>ATC</dt><dd>{{ order.atc_code }}</dd><dt>Zero filing confirmed</dt><dd>{{ order.zero_filing_approved|yesno:'Yes,No' }}</dd><dt>Return period</dt><dd class="mono">{{ order.expected_return_period }}</dd><dt>Created by</dt><dd>{{ order.created_by.get_username }}</dd><dt>Created</dt><dd>{{ order.created_at|date:'d M Y, g:i A' }}</dd></dl><div class="file-reference"><span class="small muted">Expected saved-return filename</span><p class="mono">{{ order.expected_xml_filename }}</p></div></section>
+</div>
+<section class="panel history-panel"><div class="section-heading"><h2>Activity history</h2><span class="small muted">Most recent first</span></div>{% if can_view_audit %}<ol class="timeline">{% for event in history %}<li><span class="timeline-dot" aria-hidden="true"></span><div><strong>{{ event.get_kind_display }}</strong><p>{% if event.performed_by_agent %}Worker: {{ event.performed_by_agent.name }}{% else %}{{ event.actor.get_username }}{% endif %}{% if event.old_status and event.old_status != event.new_status %} · {{ event.old_status_label }} → {{ event.new_status_label }}{% endif %}</p>{% if event.changed_fields %}<p class="small muted">Fields updated: {{ event.changed_labels|join:', ' }}</p>{% endif %}</div><time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:'d M Y, g:i A' }}</time></li>{% empty %}<li>No activity recorded yet.</li>{% endfor %}</ol>{% if history.has_other_pages %}<nav class="pagination" aria-label="Activity pages">{% if history.has_previous %}<a href="?history_page={{ history.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ history.number }} of {{ history.paginator.num_pages }}</span>{% if history.has_next %}<a href="?history_page={{ history.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}{% else %}<p class="muted">Your account does not have access to activity history.</p>{% endif %}</section>
+{% if order.status == 'READY_TO_PREPARE' or order.status == 'PROCESSING_PREPARATION' or order.stage2_approval.state == 'QUEUED' or order.stage2_approval.state == 'RUNNING' %}
+<p class="small muted">This page checks progress every 10 seconds while open. Keep the VM worker running.</p>
+<script>
+// Navigate with GET, including when this template follows a failed form POST.
+window.setInterval(function () {
+    if (!document.hidden) {
+        window.location.replace("{% url 'workorders:detail' order.pk %}");
+    }
+}, 10000);
+</script>
+{% endif %}
+{% endblock %}

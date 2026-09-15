@@ -1,0 +1,8 @@
+# Pinned Milestone 1 environment; keep Django in the 5.2 LTS series.
+asgiref==3.12.1
+Django==5.2.17
+python-dotenv==1.2.3
+sqlparse==0.6.0
+tzdata==2026.4
+
+pypdf==6.18.1

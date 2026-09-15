@@ -1,0 +1,5 @@
+{
+  "ApiBaseUrl": "https://dashboard-host.example.invalid:8443",
+  "AgentName": "HYPERV-EBIR",
+  "Token": "replace-with-the-provisioned-worker-token"
+}

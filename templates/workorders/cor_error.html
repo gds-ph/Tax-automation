@@ -1,0 +1,3 @@
+{% extends 'base.html' %}
+{% block title %}COR reader · eBIR{% endblock %}
+{% block content %}<h1>Unable to read COR</h1><section class="panel detail-section">{% for error in errors %}<p class="notice error">{{ error }}</p>{% endfor %}<p>No client configuration or filing task was created.</p><div class="button-row">{% if folder %}<a class="button secondary" href="{% url 'workorders:directory-client' %}?name={{ folder|urlencode }}">Back to registration files</a>{% else %}<a class="button secondary" href="{% url 'workorders:clients' %}">Back to clients</a>{% endif %}</div></section>{% endblock %}

@@ -1,0 +1,38 @@
+{% load static %}
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}eBIR · Office filings{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'dashboard.css' %}">
+  <link rel="stylesheet" href="{% static 'office-theme.css' %}?v=20260915-review">
+  <script src="{% static 'office-theme.js' %}"></script>
+</head>
+<body class="{% if not user.is_authenticated %}signed-out{% endif %}">
+  <a class="skip-link" href="#main">Skip to content</a>
+  {% if user.is_authenticated %}
+  <header class="topbar">
+    <a href="{% url 'workorders:clients' %}" class="brand"><span class="brand-mark" aria-hidden="true">e</span><span>eBIR<span class="brand-sub">Office filings</span></span></a>
+    <nav class="app-nav" aria-label="Main navigation">
+      <a href="{% url 'workorders:clients' %}" {% if section == 'clients' %}class="active" aria-current="page"{% endif %}>Clients</a>
+      <a href="{% url 'workorders:list' %}" {% if section == 'orders' %}class="active" aria-current="page"{% endif %}>Work orders</a>
+    </nav>
+    <div class="topbar-util">
+      <span class="workspace-state">Submission disabled</span>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark theme" aria-pressed="false" title="Switch theme">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10Z"/></svg>
+      </button>
+      <div class="user-menu"><span>{{ user.get_username }}</span><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="text-button" type="submit">Sign out</button></form></div>
+    </div>
+  </header>
+  <div class="workspace">
+  {% endif %}
+    <main id="main" class="main-content">
+      {% if messages %}<div class="messages" aria-live="polite">{% for message in messages %}<div class="notice {{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  {% if user.is_authenticated %}</div>{% endif %}
+</body>
+</html>

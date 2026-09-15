@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Reset test filings · eBIR{% endblock %}
+{% block content %}
+<a class="breadcrumb" href="{% url 'workorders:client-detail' taxpayer.pk %}">← Back to client</a>
+<div class="page-heading"><div><h1>Reset 2026 test filings</h1><p>{{ taxpayer.registered_name }} · 2551Q · Q1–Q4</p></div></div>
+<section class="panel detail-section">
+<p>This will archive {{ active_count }} active dashboard task{{ active_count|pluralize }} and release these periods for fresh tests. Client details, credentials, audit history and uploaded review PDFs are preserved.</p>
+<p><strong>VM cleanup is a separate step.</strong> This button downloads a script. Copy it into the VM and run it before creating new tasks. It moves the matching XML returns, PDFs and journal into a private archive.</p>
+<form method="post">{% csrf_token %}{{ form.token }}{{ form.non_field_errors }}{{ form.token.errors }}
+<p>{{ form.confirmed_stopped }} {{ form.confirmed_stopped.label_tag }} {{ form.confirmed_stopped.errors }}</p>
+<p>{{ form.confirmed_scope }} {{ form.confirmed_scope.label_tag }} {{ form.confirmed_scope.errors }}</p>
+<button class="button primary" type="submit">Reset dashboard &amp; download VM script</button>
+</form>
+</section>
+<section class="panel detail-section"><h2>After downloading</h2>
+<p>Copy the new file to <code>C:\TaxAutomation\Reset-Demo2026.ps1</code> inside the VM, replacing an older copy. With both flows stopped and eBIRForms closed, run this in the VM's PowerShell:</p>
+<pre>&amp; ([scriptblock]::Create([IO.File]::ReadAllText('C:\TaxAutomation\Reset-Demo2026.ps1')))</pre>
+<p>Wait for “Reset complete” before starting the worker or queuing fresh filings. If the script errors, keep the worker stopped and retain the error. Run each downloaded script once. Refresh the client page to see the cleared active task list.</p>
+</section>
+{% endblock %}

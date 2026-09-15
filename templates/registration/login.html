@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Sign in · eBIR{% endblock %}
+{% block content %}
+<div class="login-shell">
+  <div class="login-intro"><div class="brand"><span class="brand-mark" aria-hidden="true">e</span><span>eBIR<span class="brand-sub">Office filings</span></span></div><p class="eyebrow">YOUR FILING WORKSPACE</p><h1>A clear place for<br>every filing.</h1><p>Manage work orders, keep client details organized, and follow each filing’s progress.</p><div class="login-foot">Office prototype · Test data only</div></div>
+  <section class="login-panel"><p class="eyebrow">WELCOME BACK</p><h2>Sign in to your workspace</h2><p class="muted">Use your office account to continue.</p>
+    <form method="post" action="{% url 'login' %}" class="login-form">{% csrf_token %}
+      {% if form.errors %}<div class="notice error" role="alert">Sign-in failed. Check your username and password.</div>{% endif %}
+      <div class="field"><label for="id_username">Username</label><input class="input" type="text" name="username" id="id_username" autocomplete="username" value="{{ form.username.value|default_if_none:'' }}" required autofocus></div>
+      <div class="field"><label for="id_password">Password</label><input class="input" type="password" name="password" id="id_password" autocomplete="current-password" required></div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="button primary full-width" type="submit">Sign in <span aria-hidden="true">→</span></button>
+    </form>
+    <p class="small muted">Need an account? Contact your office administrator.</p>
+  </section>
+</div>
+{% endblock %}

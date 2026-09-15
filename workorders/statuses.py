@@ -1,0 +1,25 @@
+from django.db import models
+
+
+class WorkOrderStatus(models.TextChoices):
+    DRAFT = "DRAFT", "Draft"
+    READY_TO_PREPARE = "READY_TO_PREPARE", "Ready to prepare"
+    PROCESSING_PREPARATION = "PROCESSING_PREPARATION", "Processing preparation"
+    AWAITING_SUBMISSION_APPROVAL = "AWAITING_SUBMISSION_APPROVAL", "Awaiting submission approval"
+    PREPARATION_FAILED_PDF_NOT_FOUND = "PREPARATION_FAILED_PDF_NOT_FOUND", "Preparation failed: PDF not found"
+    PREPARATION_FAILED_XML_NOT_FOUND = "PREPARATION_FAILED_XML_NOT_FOUND", "Preparation failed: XML not found"
+    PROFILE_REVIEW_REQUIRED = "PROFILE_REVIEW_REQUIRED", "Profile review required"
+    APPROVED_FOR_SUBMISSION = "APPROVED_FOR_SUBMISSION", "Approved for submission"
+    REJECTED = "REJECTED", "Rejected"
+    PROCESSING_SUBMISSION = "PROCESSING_SUBMISSION", "Processing submission"
+    BLOCKED_NOT_APPROVED = "BLOCKED_NOT_APPROVED", "Blocked: not approved"
+    WORK_ORDER_VERIFICATION_FAILED = "WORK_ORDER_VERIFICATION_FAILED", "Work-order verification failed"
+    SAVED_RETURN_NOT_UNIQUE = "SAVED_RETURN_NOT_UNIQUE", "Saved return not unique"
+    SAVED_RETURN_ROW_NOT_FOUND = "SAVED_RETURN_ROW_NOT_FOUND", "Saved return row not found"
+    APPROVED_READY_TO_SUBMIT = "APPROVED_READY_TO_SUBMIT", "Approved and ready to submit (submission disabled)"
+    SUBMITTING = "SUBMITTING", "Submitting (reserved)"
+    SUBMITTED = "SUBMITTED", "Submitted (reserved)"
+    WAITING_FOR_BIR_CONFIRMATION = "WAITING_FOR_BIR_CONFIRMATION", "Waiting for BIR confirmation (reserved)"
+    COMPLETED = "COMPLETED", "Completed (reserved)"
+    FAILED_SYSTEM = "FAILED_SYSTEM", "System failure"
+    FAILED_BUSINESS = "FAILED_BUSINESS", "Business failure"

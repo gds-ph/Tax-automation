@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Filing types · eBIR{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">FILING TYPES</p><h1>Choose a filing type</h1><p class="muted">Open a filing workflow to manage its work orders.</p></div><span class="pill subtle">{{ filing_types|length }} supported filing type{{ filing_types|length|pluralize }}</span></div>
+<div class="stats-grid" aria-label="Work-order summary">
+  <div class="stat"><span>Total work orders</span><strong>{{ counts.total }}</strong><span class="stat-caption">Across supported filings</span></div>
+  <div class="stat"><span>Drafts</span><strong>{{ counts.drafts }}</strong><span class="stat-caption">Details being prepared</span></div>
+  <div class="stat"><span>Ready to prepare</span><strong>{{ counts.ready }}</strong><span class="stat-caption">Zero filing confirmed</span></div>
+</div>
+<div class="section-heading"><h2>Available filings</h2><span class="muted small">Choose a form to get started</span></div>
+{% for filing in filing_types %}
+<article class="filing-card">
+  <div class="form-tile"><span>BIR FORM</span><strong>{{ filing.code }}</strong><span>JANUARY 2018</span></div>
+  <div class="filing-copy"><span class="pill green">Available</span><h2>{{ filing.title }}</h2><p class="muted">{{ filing.period_label }}</p><p class="small muted">Create and organize work orders for this filing.</p><div class="button-row"><a class="button primary" href="{% url 'workorders:filing-orders' filing.slug %}">View work orders <span aria-hidden="true">→</span></a>{% if perms.workorders.add_workorder %}<a class="button secondary" href="{% url 'workorders:filing-create' filing.slug %}">Create work order</a>{% endif %}</div></div>
+</article>
+{% endfor %}
+<section class="workflow-panel"><h2>A simple preparation workflow</h2><div class="workflow-steps"><div><span class="step-number">01</span><h3>Create a draft</h3><p>Enter the client and filing details.</p></div><div><span class="step-number">02</span><h3>Check the details</h3><p>Confirm the period, ATC, and zero filing.</p></div><div><span class="step-number">03</span><h3>Mark ready</h3><p>Keep the work order ready for preparation.</p></div></div></section>
+{% endblock %}
