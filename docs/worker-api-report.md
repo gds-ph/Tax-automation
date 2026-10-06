@@ -1,5 +1,7 @@
 # Stage 1 worker API implementation report
 
+> Historical record. Reviewed 2 October 2026: implementation status, permissions, addresses and test counts below refer to the original delivery, not the current deployment. Start with the [current documentation index](README.md). For recovery use [the current guide](worker-preparation-recovery.md); do not replay old reset instructions against a new attempt.
+
 Implemented locally on 2026-09-14. This completes the approved Django/API and
 Windows helper work. It does not claim the Hyper-V VM is connected, the PAD
 wrapper is configured, or the existing Tax-Filing flow has executed through it.

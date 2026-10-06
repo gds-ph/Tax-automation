@@ -24,6 +24,9 @@ def create_record(*, model, actor, data):
     require_permission(actor, f"workorders.add_{model._meta.model_name}")
     if set(data) - set(fields):
         raise ValidationError("Only configuration source fields may be supplied.")
+    if model is Client:
+        from .contact_defaults import contact_for_client
+        data = {**data, **contact_for_client(data.get('client_code'))}
     record = model(**data)
     record.save(_service_write=True, force_insert=True)
     AuditEvent.objects.create(actor=actor, kind=AuditEvent.Kind.CONFIG_CREATED, **{subject: record})
@@ -39,6 +42,9 @@ def update_record(*, model, pk, actor, expected_version, changes):
     record = model.objects.select_for_update().get(pk=pk)
     if record.version != expected_version:
         raise ValidationError("This configuration changed. Reload before saving.")
+    if model is Client:
+        from .contact_defaults import contact_for_client
+        changes = {**changes, **contact_for_client(changes.get('client_code', record.client_code))}
     before = {name: getattr(record, name) for name in fields}
     for name, value in changes.items():
         if model is ClientFilingProfile and name in {"client", "form_definition"} and value != before[name]:

@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Edit {{ taxpayer.display_name }} · eBIR{% endblock %}
+{% block content %}
+<div class="form-page">
+<a class="breadcrumb" href="{% url 'workorders:client-detail' taxpayer.pk %}?tab=details">← {{ taxpayer.display_name }} company details</a>
+<div class="page-heading"><div><p class="eyebrow">{{ taxpayer.client_code }}</p><h1>Edit company details</h1><p class="muted">Corrects the reusable client record. This does not change any filing that was already prepared.</p></div></div>
+
+{% if form.errors %}<div class="notice error" role="alert">Please review the highlighted fields. {{ form.non_field_errors }}</div>{% endif %}
+{% if queued %}<div class="notice warning">{{ queued }} draft or queued work order{{ queued|pluralize }} exist{{ queued|pluralize:'s,' }} for this client. Saving changes here means those orders no longer match the details they were reviewed with, and the VM worker will not claim them until each one is refreshed and marked ready again.</div>{% endif %}
+
+<form method="post" class="panel form-section" novalidate>{% csrf_token %}
+{{ form.expected_version }}
+<h2>Registered details</h2>
+<div class="field-grid">
+  {% include 'workorders/field.html' with field=form.registered_name %}
+  {% include 'workorders/field.html' with field=form.trade_name %}
+  {% include 'workorders/field.html' with field=form.client_type %}
+  {% include 'workorders/field.html' with field=form.client_code %}
+  {% include 'workorders/field.html' with field=form.line_of_business %}
+  {% include 'workorders/field.html' with field=form.rdo_code %}
+</div>
+<h2>TIN and branch</h2>
+<p class="small muted">Leading zeros are significant. Check every digit against the certificate of registration before saving.</p>
+<div class="tin-grid">
+  {% include 'workorders/field.html' with field=form.tin1 %}
+  {% include 'workorders/field.html' with field=form.tin2 %}
+  {% include 'workorders/field.html' with field=form.tin3 %}
+  {% include 'workorders/field.html' with field=form.tin4 %}
+</div>
+<h2>Contact and address</h2>
+<div class="field-grid">
+  <div class="span-two">{% include 'workorders/field.html' with field=form.registered_address %}</div>
+  {% include 'workorders/field.html' with field=form.zip_code %}
+  {% include 'workorders/field.html' with field=form.telephone_number %}
+  {% include 'workorders/field.html' with field=form.email_address %}
+  {% include 'workorders/field.html' with field=form.rdo_email %}
+</div>
+<div class="confirmation-box">{{ form.is_active }}<div><label for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label><p>Inactive clients stay in history but cannot be selected for a new filing.</p>{{ form.is_active.errors }}</div></div>
+<div class="form-footer"><a class="button secondary" href="{% url 'workorders:client-detail' taxpayer.pk %}?tab=details">Cancel</a><button class="button primary" type="submit">Save changes</button></div>
+</form>
+</div>
+{% endblock %}

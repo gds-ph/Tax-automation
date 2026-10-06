@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Operations settings · eBIR{% endblock %}
+{% block topbar_title %}Settings{% endblock %}
+{% block content %}
+{% comment %}Flash messages are rendered once by base.html; do not loop them here too.{% endcomment %}
+<div class="form-page">
+<div class="page-heading"><div><p class="eyebrow">Administrator</p><h1>Operations settings</h1><p class="muted">Control email checks and receipt escalation without editing server files.</p></div></div>
+
+<section class="panel form-section">
+  <h2>Email confirmation and TRRC escalation</h2>
+  <p class="small muted">Send a follow-up when a submitted return tracked by this app, including 1601-C, 1601-EQ and 2551Q, has no TRRC. Active recipient: <strong>{{ trrc_recipient }}</strong></p>
+  <form method="post">{% csrf_token %}
+    <div class="field">
+      <label for="rdo-email">RDO email</label>
+      <input class="input" id="rdo-email" name="rdo_email" type="email" maxlength="254" required value="{{ rdo_email }}">
+      <p class="help-text">Shared recipient for future TRRC follow-ups across companies. Saving activates this address with the delay below. Set the delay to 0 for seven days; shorter delays also send real emails. Previously sent follow-ups are not resent.</p>
+    </div>
+    <div class="field-grid">
+      <div class="field">
+        <label for="receipt-minutes">Check for email confirmation every (minutes)</label>
+        <input class="input" id="receipt-minutes" name="receipt_minutes" type="number" min="1" max="1440" required value="{{ receipt_minutes }}">
+        <p class="help-text">Applies when each pending filing schedules its next check. Checks run on the background worker cycle, so timing is approximate.</p>
+      </div>
+      <div class="field">
+        <label for="trrc-minutes">Escalate if no confirmation after (minutes)</label>
+        <input class="input" id="trrc-minutes" name="trrc_minutes" type="number" min="0" max="43200" required value="{{ trrc_minutes }}">
+        <p class="help-text">Use 0 for the production default of 7 days. The notice is sent once; receipt polling continues.</p>
+      </div>
+    </div>
+    <div class="form-footer"><button class="button primary" type="submit">Save settings</button></div>
+  </form>
+</section>
+</div>
+{% endblock %}

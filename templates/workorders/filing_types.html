@@ -11,7 +11,7 @@
 {% for filing in filing_types %}
 <article class="filing-card">
   <div class="form-tile"><span>BIR FORM</span><strong>{{ filing.code }}</strong><span>JANUARY 2018</span></div>
-  <div class="filing-copy"><span class="pill green">Available</span><h2>{{ filing.title }}</h2><p class="muted">{{ filing.period_label }}</p><p class="small muted">Create and organize work orders for this filing.</p><div class="button-row"><a class="button primary" href="{% url 'workorders:filing-orders' filing.slug %}">View work orders <span aria-hidden="true">→</span></a>{% if perms.workorders.add_workorder %}<a class="button secondary" href="{% url 'workorders:filing-create' filing.slug %}">Create work order</a>{% endif %}</div></div>
+  <div class="filing-copy"><span class="pill green">Available</span><h2>{{ filing.title }}</h2><p class="muted">{{ filing.period_label }}</p><p class="small muted">Create and organize work orders for this filing.</p><div class="button-row"><a class="button primary" href="{% url 'workorders:filing-orders' filing.slug %}">View work orders <span aria-hidden="true">→</span></a></div></div>
 </article>
 {% endfor %}
 <section class="workflow-panel"><h2>A simple preparation workflow</h2><div class="workflow-steps"><div><span class="step-number">01</span><h3>Create a draft</h3><p>Enter the client and filing details.</p></div><div><span class="step-number">02</span><h3>Check the details</h3><p>Confirm the period, ATC, and zero filing.</p></div><div><span class="step-number">03</span><h3>Mark ready</h3><p>Keep the work order ready for preparation.</p></div></div></section>

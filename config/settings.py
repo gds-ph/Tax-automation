@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'workorders.apps.WorkordersConfig',
     'automation_api.apps.AutomationApiConfig',
     'audit.apps.AuditConfig',
+    'feishu_bot.apps.FeishuBotConfig',
 ]
 
 MIDDLEWARE = [
@@ -63,6 +64,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'audit.middleware.OperationalLoggingMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -147,7 +149,7 @@ MEDIA_URL = ''
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_URL = 'login'
-CLIENT_FILES_URL = os.environ.get('CLIENT_FILES_URL', '').rstrip('/')
+CLIENT_FILES_URL = os.environ.get('CLIENT_FILES_URL', 'http://127.0.0.1:3020').rstrip('/')
 COR_NODE_MODULES = os.environ.get('COR_NODE_MODULES', '')
 # Separate ignored file keeps the gateway key out of templates and browser code.
 from dotenv import dotenv_values
@@ -157,3 +159,56 @@ GDS_API_KEY = os.environ.get('GDS_API_KEY', _gds.get('GDS_API_KEY', '') or '')
 GDS_MODEL = os.environ.get('GDS_MODEL', _gds.get('GDS_MODEL', '') or '')
 LOGIN_REDIRECT_URL = 'workorders:clients'
 LOGOUT_REDIRECT_URL = 'login'
+
+# Enable only after the VM parent routes and live-dialog selectors are reviewed.
+ENABLE_0619F_SUBMISSION = os.environ.get('ENABLE_0619F_SUBMISSION', '0') == '1'
+ENABLE_1601EQ_SUBMISSION = os.environ.get('ENABLE_1601EQ_SUBMISSION', '0') == '1'
+ENABLE_1601C_SUBMISSION = os.environ.get('ENABLE_1601C_SUBMISSION', '0') == '1'
+
+GMAIL_CLIENT_ID = os.environ.get('GMAIL_CLIENT_ID', '')
+GMAIL_CLIENT_SECRET = os.environ.get('GMAIL_CLIENT_SECRET', '')
+GMAIL_REDIRECT_URI = os.environ.get('GMAIL_REDIRECT_URI', 'http://127.0.0.1:8000/settings/gmail/callback/')
+GMAIL_TOKEN_FILE = os.environ.get('GMAIL_TOKEN_FILE', str(BASE_DIR / 'secrets' / 'gmail-token.json'))
+GMAIL_REFRESH_TOKEN = os.environ.get('GMAIL_REFRESH_TOKEN', os.environ.get('GOOGLE_REFRESH_TOKEN', ''))
+GMAIL_ADDRESS = os.environ.get('GMAIL_ADDRESS', '')
+GMAIL_APP_PASSWORD = os.environ.get('GMAIL_APP_PASSWORD', '').replace(' ', '')
+GMAIL_RECEIPT_SENDER = os.environ.get('GMAIL_RECEIPT_SENDER', 'ebirforms-noreply@bir.gov.ph').strip().lower()
+TRRC_ESCALATION_RECIPIENT = os.environ.get('TRRC_ESCALATION_RECIPIENT', 'heiner@gds.ph').strip().lower()
+TRRC_ESCALATION_AFTER_DAYS = int(os.environ.get('TRRC_ESCALATION_AFTER_DAYS', '7'))
+TRRC_ESCALATION_AFTER_MINUTES = int(os.environ.get('TRRC_ESCALATION_AFTER_MINUTES', '0'))
+FEISHU_APP_ID = os.environ.get('FEISHU_APP_ID', '')
+FEISHU_APP_SECRET = os.environ.get('FEISHU_APP_SECRET', '')
+FEISHU_TENANT_KEY = os.environ.get('FEISHU_TENANT_KEY', '')
+FEISHU_REDIRECT_URI = os.environ.get('FEISHU_REDIRECT_URI', '')
+
+# Feishu assistant bot (feishu_bot). Defaults to the sign-in app: open IDs are per app,
+# so only the same app can map a chat sender to their dashboard account.
+FEISHU_BOT_APP_ID = os.environ.get('FEISHU_BOT_APP_ID', FEISHU_APP_ID)
+FEISHU_BOT_APP_SECRET = os.environ.get('FEISHU_BOT_APP_SECRET', FEISHU_APP_SECRET)
+FEISHU_BOT_TENANT_KEY = os.environ.get('FEISHU_BOT_TENANT_KEY', FEISHU_TENANT_KEY)
+FEISHU_BOT_SITE_URL = os.environ.get('FEISHU_BOT_SITE_URL', os.environ.get('EBIR_SITE', 'http://127.0.0.1:8000')).rstrip('/')
+FEISHU_BOT_DEVELOPER_NAME = os.environ.get('FEISHU_BOT_DEVELOPER_NAME', 'the developer')
+FEISHU_BOT_FEEDBACK_CHAT_ID = os.environ.get('FEISHU_BOT_FEEDBACK_CHAT_ID', '')
+FEISHU_BOT_GROUP_DATA = os.environ.get('FEISHU_BOT_GROUP_DATA', 'False').lower() == 'true'
+FEISHU_BOT_HOURLY_LIMIT = int(os.environ.get('FEISHU_BOT_HOURLY_LIMIT', '40'))
+FEISHU_BOT_MODEL = os.environ.get('FEISHU_BOT_MODEL', 'claude-opus-5-5')
+# 'api' uses ANTHROPIC_API_KEY; 'claude-cli' runs the locally signed-in Claude Code CLI (docs-only).
+FEISHU_BOT_BACKEND = os.environ.get('FEISHU_BOT_BACKEND', 'api' if os.environ.get('ANTHROPIC_API_KEY') else 'claude-cli')
+FEISHU_BOT_CLAUDE_CLI = os.environ.get('FEISHU_BOT_CLAUDE_CLI', 'claude')
+FEISHU_BOT_CLI_TIMEOUT = int(os.environ.get('FEISHU_BOT_CLI_TIMEOUT', '240'))
+# Claude CLI backend: a view-only dashboard account the bot signs in with to screenshot FEISHU_BOT_SITE_URL.
+FEISHU_BOT_DASHBOARD_USERNAME = os.environ.get('FEISHU_BOT_DASHBOARD_USERNAME', '')
+FEISHU_BOT_DASHBOARD_PASSWORD = os.environ.get('FEISHU_BOT_DASHBOARD_PASSWORD', '')
+# Alert a Feishu chat when a live work order starts awaiting submission approval (empty chat id: off).
+FEISHU_BOT_APPROVAL_CHAT_ID = os.environ.get('FEISHU_BOT_APPROVAL_CHAT_ID', '')
+FEISHU_BOT_APPROVAL_POLL_SECONDS = max(30, int(os.environ.get('FEISHU_BOT_APPROVAL_POLL_SECONDS', '120')))
+# Clients whose name matches this (case-insensitive regex) are never announced; default skips test clients.
+FEISHU_BOT_APPROVAL_SKIP_CLIENTS = os.environ.get('FEISHU_BOT_APPROVAL_SKIP_CLIENTS', r'\btest\b')
+# Feishu open_ids (comma-separated) messaged privately when a live automation worker goes offline or comes back.
+FEISHU_BOT_WORKER_ALERT_TO = [x.strip() for x in os.environ.get('FEISHU_BOT_WORKER_ALERT_TO', '').split(',') if x.strip()]
+# Approval and package alerts @mention (ping) the creator; False shows the name in bold without a ping.
+FEISHU_BOT_ALERT_MENTIONS = os.environ.get('FEISHU_BOT_ALERT_MENTIONS', 'True').lower() == 'true'
+# Dashboard "Created by" name to Feishu open_id, for real @mentions: "CHRIS JOHN INDOC=ou_x; OTHER NAME=ou_y".
+FEISHU_BOT_APPROVAL_MENTIONS = os.environ.get('FEISHU_BOT_APPROVAL_MENTIONS', '')
+
+ENABLE_1600VT_SUBMISSION = os.environ.get('ENABLE_1600VT_SUBMISSION', '0') == '1'

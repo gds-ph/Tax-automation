@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Gmail connection · eBIR{% endblock %}
+{% block topbar_title %}Gmail connection{% endblock %}
+{% block content %}
+<div class="form-page">
+<div class="page-heading"><div><p class="eyebrow">Mailbox</p><h1>Gmail connection</h1><p class="muted">The receipt checker reads this mailbox to find BIR confirmation emails. It never sends mail or marks messages read.</p></div></div>
+
+{% if connected %}
+<div class="notice success">Gmail connected. Mailbox: <strong>{{ address }}</strong></div>
+{% else %}
+<div class="notice error">Gmail is not connected. {{ error }}</div>
+{% endif %}
+
+<section class="panel form-section">
+  <h2>{% if connected %}Replace the App Password{% else %}Connect a mailbox{% endif %}</h2>
+  <p class="small muted">Use a 16-character Google App Password, not the account password. It is encrypted before it is stored and is never displayed again.</p>
+  <form method="post" autocomplete="off">{% csrf_token %}
+    <div class="field">
+      <label for="gmail-address">Gmail address</label>
+      <input class="input" id="gmail-address" type="email" name="address" value="{{ address }}" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="gmail-password">App Password</label>
+      <input class="input" id="gmail-password" type="password" name="app_password" autocomplete="new-password" required>
+      <p class="help-text">Spaces are ignored, so you can paste it exactly as Google shows it.</p>
+    </div>
+    <div class="form-footer">
+      <a class="button secondary" href="{% url 'workorders:clients' %}">Back to clients</a>
+      <button class="button primary" type="submit">Save and test connection</button>
+    </div>
+  </form>
+</section>
+</div>
+{% endblock %}

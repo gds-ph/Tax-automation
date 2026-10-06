@@ -79,11 +79,12 @@ class DashboardAuthTests(TestCase):
         self.client.force_login(self.actor)
         self.assertRedirects(self.client.get(reverse("login")), reverse("workorders:clients"))
 
-    def test_unassigned_user_sees_access_guidance(self):
+    def test_signed_in_user_can_access_clients(self):
         user = get_user_model().objects.create_user(username="no_role")
         self.client.force_login(user)
         response = self.client.get(reverse("workorders:clients"))
-        self.assertContains(response, "assign the appropriate workspace role", status_code=403)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(get_user_model().objects.get(pk=user.pk).has_perm("workorders.change_client"))
 
 
 class DemoCommandTests(TestCase):

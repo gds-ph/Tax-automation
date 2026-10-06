@@ -1,17 +1,80 @@
-﻿{% extends 'base.html' %}
-{% block title %}{{ taxpayer.display_name }} · Forms{% endblock %}
+{% extends 'base.html' %}
+{% block title %}{{ taxpayer.display_name }} · {{ tab_label }}{% endblock %}
 {% block content %}
-<a class="breadcrumb" href="{% url 'workorders:clients' %}">← Clients</a>
-<div class="page-heading"><div><p class="eyebrow">{{ taxpayer.client_code }}</p><h1>{{ taxpayer.display_name }}</h1><p class="muted">Choose a form to prepare a filing for this client.</p></div></div>
+<a class="breadcrumb" data-clients-back href="{% url 'workorders:clients' %}">← Clients</a>
+<div class="page-heading"><div><p class="eyebrow">{{ taxpayer.client_code }}</p><h1>{{ taxpayer.display_name }}</h1><p class="muted">{% if tab == 'details' %}Registered taxpayer details for this client.{% elif tab == 'history' %}Filings prepared for this client.{% else %}Choose a form to prepare a filing for this client.{% endif %}</p></div></div>
 {% if not taxpayer.is_active %}<div class="notice">This client is inactive. New tasks are unavailable.</div>{% endif %}
-<h2>Available forms</h2>
-{% if taxpayer.registration_setup %}<p class="small muted">COR setup reviewed {{ taxpayer.registration_setup.reviewed_at|date:'d M Y' }} · <a href="{% url 'workorders:directory-client' %}?name={{ taxpayer.registration_setup.folder|urlencode }}">Registration documents</a></p>{% endif %}
-{% if can_reset_demo %}<p><a class="button secondary" href="{% url 'workorders:reset-demo' taxpayer.pk %}">Reset 2026 test filings</a></p>{% endif %}
+
+<nav class="tabs pills" aria-label="Client sections">
+{% for value, label, url in tabs %}<a class="tab" href="{{ url }}"{% if value == tab %} aria-current="page"{% endif %}>{{ label }}{% if value == 'filings' and profile_count %}<span class="tab-count">{{ profile_count }}</span>{% elif value == 'history' and order_count %}<span class="tab-count">{{ order_count }}</span>{% endif %}</a>{% endfor %}
+</nav>
+
+{% if tab == 'details' %}
+{% if perms.workorders.change_client %}<div class="section-heading"><span class="small muted">Reusable client record</span><a class="button secondary small" href="{% url 'workorders:client-edit' taxpayer.pk %}">Edit details</a></div>{% endif %}
+<div class="detail-grid">
+  <section class="panel detail-section">
+    <h2>Registered details</h2>
+    <dl class="details">
+      <dt>Registered name</dt><dd>{{ taxpayer.registered_name }}</dd>
+      <dt>Trade name</dt><dd>{{ taxpayer.trade_name|default:'—' }}</dd>
+      <dt>Client code</dt><dd class="mono">{{ taxpayer.client_code }}</dd>
+      <dt>Taxpayer type</dt><dd>{{ taxpayer.get_client_type_display }}</dd>
+      <dt>TIN</dt><dd class="mono">{{ taxpayer.tin1 }}-{{ taxpayer.tin2 }}-{{ taxpayer.tin3 }}-{{ taxpayer.tin4 }}</dd>
+      <dt>RDO code</dt><dd>{{ taxpayer.rdo_code }}</dd>
+      <dt>Line of business</dt><dd>{{ taxpayer.line_of_business }}</dd>
+      <dt>Status</dt><dd>{% if taxpayer.is_active %}Active{% else %}Inactive{% endif %}</dd>
+    </dl>
+  </section>
+  <section class="panel detail-section">
+    <h2>Contact and address</h2>
+    <dl class="details">
+      <dt>Registered address</dt><dd>{{ taxpayer.registered_address|linebreaksbr }}</dd>
+      <dt>ZIP code</dt><dd>{{ taxpayer.zip_code }}</dd>
+      <dt>Telephone</dt><dd>{{ taxpayer.telephone_number|default:'—' }}</dd>
+      <dt>Email</dt><dd>{{ taxpayer.email_address|default:'—' }}</dd>
+      <dt>RDO email</dt><dd>{{ taxpayer.rdo_email|default:'—' }}</dd>
+    </dl>
+    {% if taxpayer.registration_setup %}
+    <div class="file-reference">
+      <span class="small muted">{% if taxpayer.registration_setup.source_path %}Reviewed COR setup{% else %}Manual setup{% endif %}</span>
+      <p>{{ taxpayer.registration_setup.reviewed_at|date:'d M Y' }} by {{ taxpayer.registration_setup.reviewed_by.get_username }} · <a href="{% url 'workorders:directory-client' %}?name={{ taxpayer.registration_setup.folder|urlencode }}&amp;documents=1">Registration documents</a></p>
+    </div>
+    {% endif %}
+  </section>
+</div>
+<p class="small muted">These details are the reusable client record used by new filings. Editing them never changes a filing that was already prepared: every work order keeps the details recorded in its own snapshot.</p>
+
+{% elif tab == 'history' %}
+<section class="panel">
+  <div class="table-heading"><h2>Filing history</h2><span class="small muted">Most recently created first{% if order_count > 25 %} · showing the latest 25{% endif %}</span></div>
+  {% if orders %}
+  <div class="table-scroll"><table><thead><tr><th scope="col">Form / period</th><th scope="col">Created</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Open work order</span></th></tr></thead><tbody>
+  {% for order in orders %}<tr>
+    <td><a class="client-link" href="{% url 'workorders:detail' order.pk %}">{{ order.form_code }} · {{ order.period_label }}</a><span class="row-sub mono">{{ order.work_order_id }}</span></td>
+    <td class="small">{{ order.created_at|date:'d M Y' }}<span class="row-sub">{{ order.created_at|date:'g:i A' }}</span></td>
+    <td>{% include 'workorders/status.html' with tone=order.operational_tone label=order.operational_status %}</td>
+    <td>{% if order.status == 'AWAITING_SUBMISSION_APPROVAL' and not order.stage2_approval %}<a class="button secondary small" href="{% url 'workorders:detail' order.pk %}#submission-review">Review for approval</a>{% else %}<a class="text-link" href="{% url 'workorders:detail' order.pk %}" aria-label="View work order for {{ order.form_code }} {{ order.period_label }}">View →</a>{% endif %}</td>
+  </tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}
+  <div class="empty-state"><span class="empty-icon" aria-hidden="true">▤</span><h2>No filings yet</h2><p>Queued and prepared filings for this client will be listed here.</p></div>
+  {% endif %}
+</section>
+
+{% else %}
+{% if taxpayer.registration_setup or can_reset_demo %}<div class="filings-toolbar">
+{% if taxpayer.registration_setup %}<p class="small muted">{% if taxpayer.registration_setup.source_path %}COR setup reviewed{% else %}Manual setup saved{% endif %} {{ taxpayer.registration_setup.reviewed_at|date:'d M Y' }} · <a href="{% url 'workorders:directory-client' %}?name={{ taxpayer.registration_setup.folder|urlencode }}&amp;documents=1">Registration documents</a></p>{% else %}<span></span>{% endif %}
+{% if can_reset_demo %}<a class="button secondary small" href="{% url 'workorders:reset-demo' taxpayer.pk %}">Reset 2026 test filings</a>{% endif %}
+</div>{% endif %}
+<h2 class="sr-only">Available forms</h2>
+<div data-filing-tabs>
+{% include "workorders/filing_frequency_tabs.html" %}
 <div class="client-cards">
-{% for profile in profiles %}<section class="panel client-card"><span class="eyebrow">{{ profile.form_definition.form_code }}</span><h2>{{ profile.form_definition.display_name }}</h2><p class="muted">{{ profile.form_definition.get_filing_frequency_display }}{% if profile.form_definition.form_version %} · {{ profile.form_definition.form_version }}{% endif %}</p>
+{% for profile in profiles %}<section class="panel client-card" data-filing-frequency="{{ profile.form_definition.filing_frequency }}" data-form-search-text="{{ profile.form_definition.form_code }} {{ profile.form_definition.display_name }}"><span class="eyebrow">{{ profile.form_definition.form_code }}</span><h2>{{ profile.form_definition.display_name }}</h2><p class="muted">{{ profile.form_definition.get_filing_frequency_display }}{% if profile.form_definition.form_version %} · {{ profile.form_definition.form_version }}{% endif %}</p>
 {% if profile.can_prepare %}{% if perms.workorders.add_workorder and perms.workorders.change_workorder and perms.workorders.view_workorder %}<a class="button primary" href="{% url 'workorders:client-prepare' taxpayer.pk profile.pk %}">Prepare {{ profile.form_definition.form_code }} →</a>{% else %}<p class="muted">View only</p>{% endif %}
 {% else %}<button class="button secondary" disabled>Not yet automated</button>{% endif %}</section>
 {% empty %}<section class="panel detail-section"><p>No active forms are configured for this client.</p></section>{% endfor %}
 </div>
-<section class="client-history"><h2>Recent tasks</h2>{% for order in orders %}<div class="panel task-row"><div><a href="{% url 'workorders:detail' order.pk %}">{{ order.form_code }} · {{ order.filing_year }}{% if order.filing_quarter %} · Q{{ order.filing_quarter }}{% endif %}</a><p class="small muted">{{ order.created_at|date:'d M Y, g:i A' }}</p></div><div class="task-review-actions"><span>{% if order.status == 'READY_TO_PREPARE' %}Queued locally{% else %}{{ order.get_status_display }}{% endif %}</span>{% if order.status == 'AWAITING_SUBMISSION_APPROVAL' %}<a class="button secondary" href="{% url 'workorders:detail' order.pk %}#submission-review">Review for approval</a>{% endif %}</div></div>{% empty %}<p class="muted">No tasks to display.</p>{% endfor %}</section>
+</div>
+{% endif %}
 {% endblock %}

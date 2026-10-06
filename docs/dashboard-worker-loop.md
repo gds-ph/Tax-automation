@@ -1,13 +1,17 @@
 # Request preparation from the dashboard
 
+Reviewed 2 October 2026. The parent now routes preparation for 2551Q, 1601C, 1601EQ and 0619F and polls Stage 2 when no preparation task is available. The pseudocode below illustrates Stage 1 only; retain the integrated Stage 2 branch. See [Stage 2](stage2-connection.md) and [recovery](worker-preparation-recovery.md).
+
 The dashboard's Clients -> client -> Prepare 2551Q -> Queue preparation already
 creates a validated, immutable work order. Keep the resulting task page open;
 it refreshes every 10 seconds while queued or processing and shows the protected
 PDF download when preparation succeeds. GET refreshes do not create/claim work.
 
-The worker API and transfer were successfully tested from the VM. The remaining
-manual PAD change is to keep the existing wrapper polling instead of stopping
-when there is no job. This change has NOT been applied inside the VM by Codex.
+The worker API and transfer were successfully tested from the VM. The installed parent loop is maintained by the operator in PAD. The instructions below describe its polling structure; Codex does not remotely edit or start that desktop flow.
+
+## Cancellation cleanup update (6 October 2026)
+
+An administrator installs the [one-time VM cancellation update](cancelled-xml-cleanup.md). Subsequent cancellations queue automatic XML archiving during idle parent polls; no additional PAD action is required. Pending/running cleanup blocks new desktop claims until processed. Close eBIRForms form windows and keep the updated parent worker running.
 
 ## Update eBIR_Work_Order_Agent inside the VM
 
@@ -58,3 +62,19 @@ do not reset that successful task or overwrite its XML to test the loop.
 Never run the one-off printer-recovery archive script for a successful attempt.
 
 Microsoft references: [Loop condition and Next loop](https://learn.microsoft.com/en-us/power-automate/desktop-flows/actions-reference/loops).
+
+
+## Operational KPI cards and archival
+
+Work orders and My tasks show five clickable counters: awaiting approval, in progress,
+needs attention, waiting for a BIR receipt, and packages completed this calendar month.
+Counters follow the client and filing-period filters and the selected task scope.
+Completed uses the package finalization date in the configured local timezone.
+Archived orders and the configured demo client codes (DUMMY-CLIENT-001,
+TEST-639848605-00000, TEST-639852610-00000) are excluded from counters and their drilldowns.
+The unfiltered task list still includes active tests for troubleshooting.
+
+Operators with both change_workorder and change_agent can expand Archive filing on
+an order detail page and confirm removal from active lists. This is a CSRF-protected,
+version-checked POST with an audit event. Active runs and any submission approval
+block archival. History, documents, and worker-local XML files are preserved.

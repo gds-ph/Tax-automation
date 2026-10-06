@@ -7,12 +7,13 @@ from django.db import models
 from django.utils import timezone
 
 from . import validators
+from .contact_defaults import DEFAULT_RDO_EMAIL
 from .definitions import get_definition, validate_form_data
 from .model_support import ServiceModel
 
 CLIENT_FIELDS = (
     "client_code", "client_type", "registered_name", "trade_name", "tin1", "tin2", "tin3", "tin4",
-    "rdo_code", "registered_address", "zip_code", "telephone_number", "email_address", "line_of_business",
+    "rdo_code", "registered_address", "zip_code", "telephone_number", "email_address", "rdo_email", "line_of_business",
     "client_folder_path", "is_active",
 )
 FORM_FIELDS = (
@@ -42,6 +43,7 @@ class Client(ServiceModel):
     zip_code = models.CharField(max_length=20)
     telephone_number = models.CharField(max_length=50, blank=True)
     email_address = models.EmailField(blank=True)
+    rdo_email = models.EmailField("RDO email", blank=True, default=DEFAULT_RDO_EMAIL)
     line_of_business = models.CharField(max_length=200)
     client_folder_path = models.CharField(max_length=500, blank=True, help_text="Automation-VM-local metadata only; Django never opens this path.")
     is_active = models.BooleanField(default=True)
@@ -71,7 +73,7 @@ class Client(ServiceModel):
             value = getattr(self, field)
             if not isinstance(value, str):
                 errors[field] = "Supply text so leading zeros are preserved."
-            elif field not in {"trade_name", "client_folder_path", "telephone_number", "email_address"} and not value.strip():
+            elif field not in {"trade_name", "client_folder_path", "telephone_number", "email_address", "rdo_email"} and not value.strip():
                 errors[field] = "This field is required."
         if errors:
             raise ValidationError(errors)

@@ -1,5 +1,7 @@
 # Milestone 1 verification
 
+> Historical record. Reviewed 2 October 2026: implementation status, permissions, addresses and test counts below refer to the original delivery, not the current deployment. Start with the [current documentation index](README.md). For recovery use [the current guide](worker-preparation-recovery.md); do not replay old reset instructions against a new attempt.
+
 ## Created files
 
 - `manage.py`, `config/`, and empty Django app scaffolds in `accounts/`,

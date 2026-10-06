@@ -8,6 +8,10 @@ from config import settings as project_settings
 
 
 class FoundationTests(SimpleTestCase):
+    # The operational logging middleware records a row for every 4xx response,
+    # so the request-level checks below need database access.
+    databases = {"default"}
+
     def test_local_configuration(self):
         self.assertEqual(settings.TIME_ZONE, "Asia/Manila")
         self.assertTrue(settings.USE_TZ)

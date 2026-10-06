@@ -1,0 +1,97 @@
+name: ebir-server
+x-app: &app
+  image: ebir-server-app:local
+  build:
+    context: .
+    dockerfile: deploy/docker/Dockerfile
+    target: app
+  env_file: .env.server
+  environment:
+    DJANGO_SETTINGS_MODULE: config.server_settings
+  volumes:
+    - app-data:/data
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+services:
+  web:
+    <<: *app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; r=urllib.request.Request('http://127.0.0.1:8000/login/', headers={'X-Forwarded-Proto':'https'}); urllib.request.urlopen(r,timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+  receipts:
+    <<: *app
+    profiles: [background]
+    command: ["python", "deploy/docker/poll.py", "receipts"]
+    depends_on:
+      web:
+        condition: service_healthy
+  cards:
+    <<: *app
+    profiles: [background]
+    command: ["python", "deploy/docker/poll.py", "cards"]
+    depends_on:
+      web:
+        condition: service_healthy
+      client-files:
+        condition: service_healthy
+  feishu-bot:
+    <<: *app
+    image: ebir-server-bot:local
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      target: bot
+    profiles: [assistant]
+    command: ["python", "manage.py", "run_feishu_bot"]
+    depends_on:
+      web:
+        condition: service_healthy
+      proxy:
+        condition: service_started
+  client-files:
+    build:
+      context: ../client-files
+    environment:
+      CLIENT_ROOT: /clients
+      PORT: "3020"
+      ALLOW_CLIENT_FOLDER_DELETE: "false"
+    volumes:
+      - type: bind
+        source: ${CLIENT_SHARE_PATH:?Set CLIENT_SHARE_PATH to the mounted CLIENT directory}
+        target: /clients
+        bind:
+          create_host_path: false
+      - client-files-data:/app/data
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+  proxy:
+    image: caddy:2-alpine
+    environment:
+      EBIR_SITE: ${EBIR_SITE:?Set EBIR_SITE to the HTTPS address}
+      SERVER_BIND_IP: ${SERVER_BIND_IP:?Set SERVER_BIND_IP}
+    ports:
+      - "${SERVER_BIND_IP:?Set SERVER_BIND_IP}:8443:8443"
+    volumes:
+      - ./deploy/docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  app-data:
+  client-files-data:
+  caddy-data:
+  caddy-config:

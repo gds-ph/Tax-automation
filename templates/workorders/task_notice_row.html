@@ -1,0 +1,11 @@
+  <li>
+    <form method="post" action="{% url 'workorders:open-notice' item.order.pk %}" class="notice-row">{% csrf_token %}
+      <input type="hidden" name="token" value="{{ item.token }}">
+      <span class="notice-dot{% if item.kind == 'attention' %} danger{% elif item.kind == 'complete' %} ok{% endif %}" aria-hidden="true"></span>
+      <div class="notice-body">
+        <strong>{{ item.label }}</strong>
+        <span class="row-sub">{{ item.order.client_name }} · {{ item.order.form_code }} · {{ item.order.period_label }}</span>
+      </div>
+      <button class="button secondary small" type="submit">Open filing</button>
+    </form>
+  </li>

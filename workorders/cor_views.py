@@ -15,6 +15,7 @@ from .cor_extraction import read_cor, FORM_CATALOG
 from .cor_forms import CORReviewForm
 from .cor_services import save_setup
 from .models import RegistrationSetup
+from .registration_cards import card_actions, registration_source_url
 from .views import dashboard_permission
 
 PERMISSIONS = ('workorders.view_client', 'workorders.add_client', 'workorders.add_clientfilingprofile',
@@ -67,8 +68,9 @@ def read(request):
             title, frequency = FORM_CATALOG.get(code, (row['tax_type'] or 'Registration entry', row['frequency']))
             cards.append({'code': code, 'title': title, 'frequency': frequency,
                           'uncertain': row['uncertain'] or code not in result['initial']['filings']})
-        return render(request, 'workorders/cor_cards.html', {'cards': cards, 'draft': draft,
-                      'draft_id': draft_id, 'digest': digest})
+        return render(request, 'workorders/cor_cards.html', {'cards': card_actions(cards), 'draft': draft,
+                      'draft_id': draft_id, 'digest': digest,
+                      'source_url': registration_source_url(request.user, folder, path)})
     return redirect('workorders:cor-review', draft_id=draft_id)
 
 

@@ -5,6 +5,7 @@ import logging
 import uuid
 from functools import wraps
 from django.http import JsonResponse, HttpResponse
+from django.conf import settings
 from django.db import models, OperationalError, IntegrityError
 from django.core.exceptions import ValidationError, RequestDataTooBig
 from django.utils import timezone
@@ -79,7 +80,8 @@ def body(request,allowed,required=None):
 
 @endpoint('GET')
 def health(request,agent):
-    return JsonResponse({'status':'ok','agent':agent.name,'api_version':1,'poll_seconds':POLL_SECONDS,'submission_enabled':False})
+    return JsonResponse({'status':'ok','agent':agent.name,'api_version':1,'poll_seconds':POLL_SECONDS,
+                         'submission_enabled': bool(getattr(settings, 'ENABLE_1601C_SUBMISSION', False))})
 
 
 @endpoint('POST')
@@ -107,6 +109,12 @@ def renew(request,agent,attempt_id):
     data=body(request,{'lease_token'})
     attempt=services.renew(agent=agent,attempt_id=attempt_id,lease_token=data['lease_token'])
     return JsonResponse({'LeaseExpiresAt':attempt.lease_expires_at.isoformat()})
+
+
+@endpoint('POST')
+def preparation_recovery(request, agent, attempt_id):
+    data = body(request, {'lease_token', 'work_order_id', 'automation_key'})
+    return JsonResponse(services.preparation_recovery(agent=agent, attempt_id=attempt_id, **data))
 
 
 @endpoint('PUT')

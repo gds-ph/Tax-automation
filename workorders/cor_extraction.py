@@ -9,10 +9,13 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 
 FORM_CATALOG = {
+    '1601C': ('Monthly Remittance Return of Income Taxes Withheld on Compensation', 'MONTHLY'),
     '1701': ('Annual Income Tax Return — Individual', 'ANNUAL'),
     '1701A': ('Annual Income Tax Return — Individual (1701A)', 'ANNUAL'),
     '1701Q': ('Quarterly Income Tax Return', 'QUARTERLY'),
     '2550Q': ('Quarterly Value-Added Tax Return', 'QUARTERLY'),
+    '1600VT': ('Monthly Remittance Return of Value-Added Tax Withheld', 'MONTHLY'),
+    '0619F': ('Monthly Remittance Form of Final Income Taxes Withheld', 'MONTHLY'),
     '0619E': ('Monthly Remittance of Expanded Withholding Tax', 'MONTHLY'),
     '1601EQ': ('Quarterly Expanded Withholding Tax Return', 'QUARTERLY'),
     '1604E': ('Annual Information Return — Expanded Withholding Tax', 'ANNUAL'),
@@ -63,7 +66,11 @@ is_cor (boolean), taxpayer (object: registered_name, client_type, taxpayer_type_
 rdo_code, registered_address, zip_code, telephone_number, email_address, line_of_business,
 calendar_or_fiscal, year_end_month, accounting_period_evidence),
 filings (array of objects: form_code, tax_type, frequency, page, evidence, uncertain),
-warnings (array of strings), transcript (string of visible document text).
+warnings (array of strings), transcript (string of visible document text),
+readability_score (integer 0-100: visual legibility of the full certificate, considering blur,
+contrast, cropping and completeness; 100 is fully clear and complete).
+Transcribe OCN and Date OCN Generated exactly, including on every page where visible.
+Do not confuse Date OCN Generated with TIN issuance, registration or filing start dates.
 All taxpayer values must be strings; unreadable or absent fields must be empty strings.
 Read the TAXPAYER TYPE/S field, including below the tax table. Transcribe its selected or printed
 value exactly into taxpayer_type_evidence (not unselected options). Set client_type to INDIVIDUAL
@@ -146,7 +153,7 @@ No Markdown, no invented data, no ATC inference. This is transcription, not tax 
     if isinstance(extra, list):
         warnings.extend(w[:1000] for w in extra[:20] if isinstance(w, str))
     return {'initial': initial, 'rows': checked, 'warnings': warnings, 'transcript': transcript,
-            'model': settings.GDS_MODEL}
+            'model': settings.GDS_MODEL, 'readability_score': result.get('readability_score')}
 
 
 def suggest(text):

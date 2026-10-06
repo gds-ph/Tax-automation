@@ -1,1 +1,1 @@
-<span class="pill {% if status == 'READY_TO_PREPARE' %}green{% else %}subtle{% endif %}">{{ label }}</span>
+{% comment %}Tone comes from WorkOrder._operational so the colour always matches the label.{% endcomment %}<span class="pill {{ tone|default:'subtle' }}">{{ label }}</span>

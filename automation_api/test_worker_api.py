@@ -77,11 +77,40 @@ class WorkerApiTests(TestCase):
             response=client.get(reverse('automation_api:health'))
             self.assertEqual(response.status_code,401)
             self.assertIn('no-store',response.headers['Cache-Control'])
-        response=self.client.get(reverse('automation_api:health'))
-        self.assertEqual(response.status_code,200);self.assertFalse(response.json()['submission_enabled'])
+        # Health reports the configured flag, so pin it instead of inheriting
+        # whatever the developer's environment happens to set.
+        with override_settings(ENABLE_1601C_SUBMISSION=False):
+            response=self.client.get(reverse('automation_api:health'))
+            self.assertEqual(response.status_code,200);self.assertFalse(response.json()['submission_enabled'])
+        with override_settings(ENABLE_1601C_SUBMISSION=True):
+            self.assertTrue(self.client.get(reverse('automation_api:health')).json()['submission_enabled'])
         self.agent.refresh_from_db();self.assertIsNotNone(self.agent.last_seen_at)
         disable_agent(actor=self.actor,agent_id=self.agent.pk)
         self.assertEqual(self.client.get(reverse('automation_api:health')).status_code,401)
+
+    def test_recovery_requires_exact_owned_operator_released_preparation(self):
+        job = self.job()
+        url = reverse('automation_api:preparation-recovery', args=[job['AttemptId']])
+        data = {'lease_token': job['LeaseToken'], 'work_order_id': job['WorkOrderId'],
+                'automation_key': job['AutomationKey']}
+        def check(client=None, **changes):
+            return (client or self.client).post(url, data=json.dumps({**data, **changes}), content_type='application/json')
+        self.assertFalse(check().json()['ClearPending'])
+        self.assertEqual(check(lease_token=str(uuid.uuid4())).status_code, 403)
+        self.assertEqual(check(work_order_id='wrong-order').status_code, 409)
+        self.assertEqual(check(automation_key='SUBMIT_2551QV2018').status_code, 409)
+        other = HttpClient(HTTP_AUTHORIZATION='Bearer ' + self.other_token)
+        self.assertEqual(check(other).status_code, 403)
+        order = WorkOrder.objects.get(work_order_id=job['WorkOrderId'])
+        worker_services.abandon(actor=self.actor, attempt_id=job['AttemptId'],
+                                expected_version=order.version, confirmed_stopped=True)
+        result = check()
+        self.assertEqual(result.status_code, 200)
+        self.assertTrue(result.json()['ClearPending'])
+        self.assertNotIn('LeaseToken', result.json())
+        self.assertTrue(check().json()['ClearPending'])
+        self.assertEqual(self.client.get(url).status_code, 405)
+        self.assertEqual(HttpClient().post(url, data=json.dumps(data), content_type='application/json').status_code, 401)
 
     def test_rotated_token_revokes_api_access(self):
         rotate_agent_token(actor=self.actor,agent_id=self.agent.pk)
@@ -278,9 +307,10 @@ class WorkerApiTests(TestCase):
         self.assertEqual(b''.join(response.streaming_content),two_page_pdf())
         response.close()
         self.assertEqual(HttpClient().get(inline_url).status_code,302)
-        detail=anonymous.get(reverse('workorders:detail',args=[order.pk]))
-        self.assertContains(detail,'title="Prepared filing PDF"')
-        self.assertContains(detail,inline_url+'#view=FitH')
+        # Documents opens the protected PDF in a separate tab.
+        detail=anonymous.get(reverse('workorders:detail',args=[order.pk]),{'tab':'documents'})
+        self.assertNotContains(detail,'<iframe')
+        self.assertContains(detail,inline_url+'" target="_blank" rel="noopener">Open</a>')
         self.assertEqual(anonymous.get('/media/example.pdf').status_code,404)
         worker_services.private_pdf_path(order).write_bytes(b'changed')
         self.assertEqual(anonymous.get(url).status_code,404)

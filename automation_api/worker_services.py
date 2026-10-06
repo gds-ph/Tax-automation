@@ -27,6 +27,18 @@ class WorkerError(Exception):
         super().__init__(message)
 
 
+def allowed_pdf_page_counts(order):
+    """Return the physical page counts accepted for this form's prepared PDF."""
+    form_number = order.current_snapshot.data['form']['expected_form_number']
+    if form_number in {'1601EQ', '0619F', '1600VTv2018'}:
+        return {1}
+    if form_number == '1601Cv2018':
+        # The Windows print path can split the form's second logical page into
+        # two physical pages; both 2-page and 3-page outputs are valid.
+        return {2, 3}
+    return {2}
+
+
 def _active(agent):
     if not Agent.objects.filter(pk=agent.pk, is_active=True).exists():
         raise WorkerError('unauthorized', 'The worker is disabled.', 401)
@@ -44,12 +56,23 @@ def payload(attempt):
         'TelephoneNumber':'telephone_number', 'EmailAddress':'email_address', 'LineOfBusiness':'line_of_business',
     }.items()}
     inputs.update({dest: form[source] for dest, source in {'FormSelectionText':'form_selection_text','FormCode':'form_code','ExpectedFormNumber':'expected_form_number'}.items()})
-    inputs.update(FilingYear=filing['filing_year'], FilingQuarter=str(filing['filing_quarter']), YearEndMonth=profile['year_end_month'],
-        ATCCode=filing['form_data']['atc_code'], ClientNameSafe=safe_filename_component(client['trade_name'] or client['registered_name']),
+    inputs.update(FilingYear=filing['filing_year'], FilingQuarter=str(filing['filing_quarter'] or ''), YearEndMonth=profile['year_end_month'],
+        ATCCode=filing['form_data'].get('atc_code', ''), ClientNameSafe=safe_filename_component(client['trade_name'] or client['registered_name']),
         OutputFolder=ntpath.join(VM_WORKING_ROOT, order.work_order_id, str(attempt.pk)))
     period=inputs['YearEndMonth']+inputs['FilingYear']+'Q'+inputs['FilingQuarter']
     name=''.join(inputs[key] for key in ('TIN1','TIN2','TIN3','TIN4'))+'-'+inputs['ExpectedFormNumber']+'-'+period
     pdf=f"{inputs['ClientNameSafe']}_{inputs['FormCode']}_{inputs['FilingYear']}_Q{inputs['FilingQuarter']}_COMPLETE.pdf"
+    if form['filing_frequency'] == 'MONTHLY':
+        inputs['FilingMonth'] = f"{filing['filing_month']:02d}"
+        period = inputs['FilingMonth'] + inputs['FilingYear']
+        name = ''.join(inputs[key] for key in ('TIN1','TIN2','TIN3','TIN4'))+'-'+inputs['ExpectedFormNumber']+'-'+period
+        pdf = f"{inputs['ClientNameSafe']}_{inputs['FormCode']}_{inputs['FilingYear']}_{inputs['FilingMonth']}_COMPLETE.pdf"
+    if form['expected_form_number'] == '0619F':
+        name += 'WB'
+    if form['expected_form_number'] == '1601EQ':
+        inputs['FilingMonth'] = ''
+        period = inputs['FilingYear'] + 'Q' + inputs['FilingQuarter']
+        name = ''.join(inputs[key] for key in ('TIN1','TIN2','TIN3','TIN4')) + '-1601EQ-' + period
     prefix=f'/api/agent/preparation/{attempt.pk}'
     return {'AttemptId':str(attempt.pk), 'WorkOrderId':order.work_order_id, 'State':attempt.state, 'Status':order.status,
         'AutomationKey':form['automation_key'], 'LeaseToken':str(attempt.lease_token), 'LeaseExpiresAt':attempt.lease_expires_at.isoformat(),
@@ -59,28 +82,53 @@ def payload(attempt):
         'PdfUploadUrl':prefix+'/pdf/', 'ResultUrl':prefix+'/result/', 'RenewUrl':prefix+'/renew/'}
 
 
+def valid_automation_keys(keys, allowed):
+    return (isinstance(keys, list) and bool(keys) and all(isinstance(key, str) for key in keys)
+            and len(set(keys)) == len(keys) and set(keys) <= allowed)
+
+
+def return_identity_fields(order):
+    fields = ('tin1', 'tin2', 'tin3', 'tin4', 'expected_form_number', 'filing_year')
+    if order.expected_form_number == '1601EQ':
+        return fields + ('filing_quarter',)
+    return fields + (('filing_month',) if order.filing_month is not None else ('year_end_month', 'filing_quarter'))
+
+
 def xml_reserved(order):
     """A reviewed XML must not be overwritten by another preparation of its name."""
-    fields=("tin1","tin2","tin3","tin4","expected_form_number","year_end_month","filing_year","filing_quarter")
+    fields=return_identity_fields(order)
     return WorkOrder.objects.filter(is_archived=False, status="AWAITING_SUBMISSION_APPROVAL", **{field:getattr(order,field) for field in fields}).exclude(pk=order.pk).exists()
 
 
 @transaction.atomic
 def claim(*, agent, request_id, automation_keys):
     _active(agent)
-    if automation_keys != ['PREPARE_2551QV2018_ZERO']:
-        raise WorkerError('unsupported_automation', 'Advertise only PREPARE_2551QV2018_ZERO for this prototype.', 400)
+    from .cancellation import lock_execution, cleanup_pending
+    lock_execution()
+    if not valid_automation_keys(automation_keys, {'PREPARE_2551QV2018_ZERO', 'PREPARE_1601CV2018_ZERO', 'PREPARE_1601EQ_ZERO', 'PREPARE_0619F_ZERO', 'PREPARE_1600VT_ZERO'}):
+        raise WorkerError('unsupported_automation', 'Advertise supported preparation automation keys.', 400)
     existing=PreparationAttempt.objects.select_related('work_order','snapshot').filter(pk=request_id).first()
     if existing:
         if hasattr(existing, 'stage2_approval'):
             raise WorkerError('wrong_stage', 'This request belongs to Stage 2.')
         if existing.agent_id != agent.pk:
             raise WorkerError('request_conflict','This request ID belongs to another worker.')
+        if existing.snapshot.data['form']['automation_key'] not in automation_keys:
+            raise WorkerError('unsupported_automation', 'Worker no longer advertises this form.')
         if existing.state == 'RUNNING' and existing.lease_expires_at <= timezone.now():
             raise WorkerError('lease_expired','The lease expired. Stop and request operator review; do not rerun the desktop flow.')
         return existing
+    if cleanup_pending():
+        return None
     # One global desktop execution slot. Expiry never implies a desktop flow stopped.
-    if PreparationAttempt.objects.filter(execution_slot=1).exists():
+    active_attempt = PreparationAttempt.objects.filter(execution_slot=1).first()
+    if active_attempt:
+        # The parent polls preparation before Stage 2. Let its owning worker
+        # reach Stage 2's journal/replay checks without creating another task.
+        if (active_attempt.agent_id == agent.pk
+                and hasattr(active_attempt, 'stage2_approval')
+                and active_attempt.lease_expires_at > timezone.now()):
+            return None
         raise WorkerError('worker_busy','An attempt is already running or awaiting operator recovery. Do not start another flow.')
     for order in WorkOrder.objects.filter(is_archived=False, status='READY_TO_PREPARE').order_by('created_at','id').iterator(chunk_size=100):
         try:
@@ -160,7 +208,8 @@ def verify_stored_pdf(order):
 
 def upload_pdf(*,agent,attempt_id,lease_token,source,expected_sha256):
     # Authentication/ownership is checked before reading the file and again at commit.
-    owned_attempt(agent,attempt_id,lease_token,allow_completed=True)
+    attempt = owned_attempt(agent,attempt_id,lease_token,allow_completed=True)
+    allowed_pages = allowed_pdf_page_counts(attempt.work_order)
     if not isinstance(expected_sha256,str) or len(expected_sha256)!=64 or any(c not in '0123456789abcdef' for c in expected_sha256):
         raise WorkerError('invalid_hash','Supply X-PDF-SHA256 as 64 lowercase hexadecimal characters.',400)
     stored_name=None
@@ -178,19 +227,20 @@ def upload_pdf(*,agent,attempt_id,lease_token,source,expected_sha256):
                 raise WorkerError('hash_mismatch','The PDF bytes do not match the supplied hash.',400)
             temporary.seek(0)
             if temporary.read(5)!=b'%PDF-':
-                raise WorkerError('invalid_pdf','Upload the merged two-page PDF.',400)
+                raise WorkerError('invalid_pdf','Upload the merged PDF.',400)
             temporary.seek(0)
             try:
                 reader=PdfReader(temporary,strict=True)
-                if reader.is_encrypted or len(reader.pages)!=2:
-                    raise ValueError('Expected two unencrypted pages')
+                if reader.is_encrypted or len(reader.pages) not in allowed_pages:
+                    raise ValueError('Unexpected page count')
                 root=reader.root_object
                 names=root.get('/Names',{})
                 if hasattr(names,'get_object'): names=names.get_object()
                 if any(key in root for key in ('/OpenAction','/AA')) or any(key in names for key in ('/JavaScript','/EmbeddedFiles')):
                     raise ValueError('Active content is not supported')
             except Exception:
-                raise WorkerError('invalid_pdf','The file must be a readable, unencrypted two-page PDF without embedded actions or attachments.',400) from None
+                counts = ', '.join(str(count) for count in sorted(allowed_pages))
+                raise WorkerError('invalid_pdf',f'The file must be a readable, unencrypted PDF with {counts} physical pages and no embedded actions or attachments.',400) from None
             temporary.seek(0)
             with transaction.atomic():
                 attempt=owned_attempt(agent,attempt_id,lease_token,allow_completed=True)
@@ -257,6 +307,9 @@ def record_result(*,agent,attempt_id,lease_token,data):
     attempt.save(_service_write=True)
     AuditEvent.objects.create(work_order=order,snapshot=attempt.snapshot,performed_by_agent=agent,kind='PREPARATION_RESULT',
         old_status='PROCESSING_PREPARATION',new_status=state,changed_fields=['preparation_status_output','saved_xml_path','prepared_pdf_vm_path'])
+    if state == 'AWAITING_SUBMISSION_APPROVAL':
+        from .prepared_archive import enqueue
+        enqueue(order)
     return order
 
 
@@ -286,3 +339,21 @@ def abandon(*,actor,attempt_id,expected_version,confirmed_stopped):
     AuditEvent.objects.create(work_order=order,snapshot=attempt.snapshot,actor=actor,kind='ATTEMPT_ABANDONED',
         old_status='PROCESSING_PREPARATION',new_status=order.status)
     return order
+
+
+def preparation_recovery(*, agent, attempt_id, lease_token, work_order_id, automation_key):
+    """Read-only permission to retire one journal after explicit operator release."""
+    _active(agent)
+    attempt = PreparationAttempt.objects.select_related('work_order', 'snapshot').filter(
+        pk=attempt_id, agent=agent).first()
+    if not attempt or not secrets.compare_digest(str(attempt.lease_token), str(lease_token)):
+        raise WorkerError('invalid_attempt', 'The journal does not match this worker attempt.', 403)
+    if (hasattr(attempt, 'stage2_approval') or
+            work_order_id != attempt.work_order.work_order_id or
+            automation_key != attempt.snapshot.data['form']['automation_key'] or
+            not automation_key.startswith('PREPARE_')):
+        raise WorkerError('wrong_stage', 'Only the matching preparation journal can be recovered.', 409)
+    released = (attempt.state == 'ABANDONED' and attempt.execution_slot is None and
+                attempt.completed_at is not None)
+    return {'ClearPending': released, 'AttemptId': str(attempt.pk),
+            'WorkOrderId': work_order_id, 'AutomationKey': automation_key}

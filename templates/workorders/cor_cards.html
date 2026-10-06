@@ -1,11 +1,15 @@
-<div data-cor-digest="{{ digest }}">
+<div data-filing-tabs data-cor-digest="{{ digest }}">
   <h3>{{ draft.initial.registered_name|default:draft.folder }}</h3>
-  <p class="small muted">TIN {{ draft.initial.tin1 }}-{{ draft.initial.tin2 }}-{{ draft.initial.tin3 }}-{{ draft.initial.tin4 }}</p>
+  <p class="small muted">TIN {{ draft.initial.tin1 }}-{{ draft.initial.tin2 }}-{{ draft.initial.tin3 }}-{{ draft.initial.tin4 }} · <a href="{% url 'workorders:cor-review' draft_id %}">Review company details</a></p>
+  {% if source_url %}<p><a class="button secondary" href="{{ source_url }}" target="_blank" rel="noopener">View 2303 / COR ↗</a></p>{% endif %}
+  {% include "workorders/filing_frequency_tabs.html" %}
   <div class="client-cards">
-  {% for card in cards %}<section class="panel client-card">
-    <p class="eyebrow">{{ card.code }}</p><h2>{{ card.title }}</h2><p class="muted">{{ card.frequency|title }}</p>
-    {% if card.uncertain %}<p class="small muted">Needs review — unclear, historical or alternative entry.</p>{% endif %}
-    <a class="button secondary" href="{% url 'workorders:cor-review' draft_id %}">Review filing setup</a>
+  {% for card in cards %}<section class="panel client-card" data-filing-frequency="{{ card.frequency }}" data-form-search-text="{{ card.code }} {{ card.title }}">
+    <span class="eyebrow">{{ card.code }}</span><h2>{{ card.title }}</h2><p class="muted">{{ card.frequency|title }}{% if card.version %} · {{ card.version }}{% endif %}</p>
+    {% if card.can_prepare %}
+      {% if perms.workorders.add_workorder and perms.workorders.change_workorder and perms.workorders.view_workorder %}<a class="button primary" href="{% url 'workorders:cor-review' draft_id %}">Prepare {{ card.code }} →</a>{% else %}<p class="muted">View only</p>{% endif %}
+    {% else %}<button class="button secondary" disabled>Not yet automated</button>{% endif %}
+    {% if card.uncertain %}<p class="small muted">Registration entry needs review.</p>{% endif %}
   </section>{% empty %}<p>No filing rows could be identified. <a href="{% url 'workorders:cor-review' draft_id %}">Review certificate</a></p>{% endfor %}
   </div>
 </div>

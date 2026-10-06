@@ -1,14 +1,93 @@
 {% extends 'base.html' %}
 {% block title %}Review COR · {{ draft.folder }}{% endblock %}
 {% block content %}
+<div class="review-page">
 <a class="breadcrumb" href="{% url 'workorders:directory-client' %}?name={{ draft.folder|urlencode }}">← Registration files</a>
-<div class="page-heading"><div><p class="eyebrow">Review before saving</p><h1>{{ draft.folder }}</h1><p class="muted">Verify the taxpayer, branch and current filing requirements against the source. Fill in missing contact details manually.</p></div><a class="button secondary" href="{{ source_url }}" target="_blank" rel="noopener">Open original COR ↗</a></div>
-{% for warning in draft.warnings %}<p class="notice">{{ warning }}</p>{% endfor %}
-<div class="notice">An older COR can list requirements that have since changed. The annual registration fee ended January 22, 2024; required VAT filing became quarterly from 2023. Neither 0605 registration fee nor 2550M is automatically configured. <a href="https://bir-cdn.bir.gov.ph/local/pdf/RMC%20No.%2014-2024.pdf" target="_blank" rel="noopener">BIR registration fee guidance</a> · <a href="https://bir-cdn.bir.gov.ph/local/pdf/RMC%20No.%205-2023.pdf" target="_blank" rel="noopener">VAT guidance</a></div>
-<section class="panel detail-section"><h2>Tax table read from the document</h2><p class="small muted">{{ draft.model }} · {{ draft.path }}</p><div class="table-scroll"><table><thead><tr><th>Form</th><th>Tax type / frequency</th><th>Source</th><th>Review</th></tr></thead><tbody>{% for row in draft.rows %}<tr><td>{{ row.form_code }}</td><td>{{ row.tax_type }}<span class="row-sub">{{ row.frequency }}</span></td><td>Page {{ row.page }}<span class="row-sub">{{ row.evidence }}</span></td><td>{% if row.uncertain %}Uncertain — verify{% else %}Verify against COR{% endif %}</td></tr>{% empty %}<tr><td colspan="4">No tax rows could be identified. Select forms only after checking the original document.</td></tr>{% endfor %}</tbody></table></div></section>
-<form method="post" class="preparation-form">{% csrf_token %}{{ form.non_field_errors }}
-<section class="panel form-section"><h2>Taxpayer details</h2><p class="muted small">Phone and email can be left blank if they are not on the COR. Verify the remaining details against your records. Leading zeros matter.</p><div class="field-grid">{% for field in form %}{% if field.name != 'filings' and field.name != 'confirmed' %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}<div class="field-errors">{{ field.errors }}</div></div>{% endif %}{% endfor %}</div></section>
-<section class="panel form-section"><h2>Filing cards to create</h2><p class="muted small">Check all applicable forms. Uncertain and unsupported source entries require manual review. Cards are not filing deadlines. Only 2551Q zero preparation currently has automation.</p><div class="cor-form-options">{{ form.filings }}</div><div class="field-errors">{{ form.filings.errors }}</div><div class="confirmation-box">{{ form.confirmed }}<label for="{{ form.confirmed.id_for_label }}">{{ form.confirmed.label }}</label></div><div class="field-errors">{{ form.confirmed.errors }}</div><div class="button-row"><button class="button primary" type="submit">Save filing setup</button><a class="button secondary" href="{% url 'workorders:directory-client' %}?name={{ draft.folder|urlencode }}">Cancel</a></div></section>
+<div class="page-heading"><div><p class="eyebrow">Review before saving</p><h1>{{ draft.initial.registered_name|default:draft.folder }}</h1><p class="muted">Check every detail against the certificate before it becomes a client. Nothing is saved until you confirm at the bottom.</p></div><a class="button secondary" href="{{ source_url }}" target="_blank" rel="noopener">Open original COR ↗</a></div>
+
+{% if form.non_field_errors %}<div class="notice error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+
+{% if draft.warnings %}
+<section class="panel review-flags" aria-labelledby="flags-heading">
+  <h2 id="flags-heading">Check these before saving <span class="count">{{ draft.warnings|length }}</span></h2>
+  <ul>{% for warning in draft.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<details class="panel review-guidance">
+  <summary>Requirements on an older certificate may have changed</summary>
+  <p>The annual registration fee ended January 22, 2024, and required VAT filing became quarterly from 2023. Neither the 0605 registration fee nor 2550M is configured automatically.</p>
+  <p class="small"><a href="https://bir-cdn.bir.gov.ph/local/pdf/RMC%20No.%2014-2024.pdf" target="_blank" rel="noopener">BIR registration fee guidance ↗</a> · <a href="https://bir-cdn.bir.gov.ph/local/pdf/RMC%20No.%205-2023.pdf" target="_blank" rel="noopener">VAT guidance ↗</a></p>
+</details>
+
+<section class="panel">
+  <div class="table-heading"><h2>Tax table read from the document</h2><span class="small muted">{{ draft.rows|length }} row{{ draft.rows|length|pluralize }}</span></div>
+  <div class="table-scroll"><table>
+    <thead><tr><th scope="col">Form</th><th scope="col">Tax type / frequency</th><th scope="col">Source</th><th scope="col">Reading</th></tr></thead>
+    <tbody>{% for row in draft.rows %}<tr>
+      <td><strong>{{ row.form_code }}</strong></td>
+      <td>{{ row.tax_type }}<span class="row-sub">{{ row.frequency }}</span></td>
+      <td class="small">Page {{ row.page }}<span class="row-sub">{{ row.evidence }}</span></td>
+      <td>{% if row.uncertain %}<span class="pill warn">Uncertain</span>{% else %}<span class="pill subtle">Read</span>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="4">No tax rows could be identified. Select forms only after checking the original document.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="small muted table-note">Read by {{ draft.model }} from {{ draft.path }}. Every row still needs checking against the certificate.</p>
+</section>
+
+<form method="post" novalidate>{% csrf_token %}
+
+<section class="panel form-section">
+  <div class="section-heading"><h2><span class="section-number">1</span>Taxpayer details</h2></div>
+  <p class="small muted">Leading zeros matter. Phone and email may be left blank when the certificate does not show them.</p>
+  <div class="field-grid">
+    <div class="span-two">{% include 'workorders/field.html' with field=form.registered_name %}</div>
+    {% include 'workorders/field.html' with field=form.client_type %}
+    {% include 'workorders/field.html' with field=form.rdo_code %}
+  </div>
+  <h3 class="field-group-label">TIN and branch</h3>
+  <div class="tin-grid">
+    {% include 'workorders/field.html' with field=form.tin1 %}
+    {% include 'workorders/field.html' with field=form.tin2 %}
+    {% include 'workorders/field.html' with field=form.tin3 %}
+    {% include 'workorders/field.html' with field=form.tin4 %}
+  </div>
+  <h3 class="field-group-label">Contact and address</h3>
+  <div class="field-grid">
+    <div class="span-two">{% include 'workorders/field.html' with field=form.registered_address %}</div>
+    {% include 'workorders/field.html' with field=form.zip_code %}
+    {% include 'workorders/field.html' with field=form.telephone_number %}
+    {% include 'workorders/field.html' with field=form.email_address %}
+    {% include 'workorders/field.html' with field=form.rdo_email %}
+    <div class="span-two">{% include 'workorders/field.html' with field=form.line_of_business %}</div>
+  </div>
+  <h3 class="field-group-label">Accounting period</h3>
+  <div class="field-grid">
+    {% include 'workorders/field.html' with field=form.calendar_or_fiscal %}
+    {% include 'workorders/field.html' with field=form.year_end_month %}
+  </div>
+</section>
+
+<section class="panel form-section" data-filing-tabs>
+  <div class="section-heading"><h2><span class="section-number">2</span>Filing cards to create</h2></div>
+  <p class="small muted">Tick the forms this taxpayer is currently required to file. Cards are not filing deadlines, and an entry on the certificate does not by itself mean the requirement still applies.</p>
+  {% include 'workorders/filing_frequency_tabs.html' %}
+  <div class="cor-form-options"><div data-frequency-grid>
+    {% for frequency, option in form.filing_options %}
+    <div data-filing-frequency="{{ frequency }}"><label for="{{ option.id_for_label }}">{{ option.tag }} {{ option.choice_label }}</label></div>
+    {% endfor %}
+  </div></div>
+  <div class="field-errors">{{ form.filings.errors }}</div>
+  <p class="small muted">2551Q zero-filing and 1601C zero-compensation preparation are automated. Other cards are recorded for reference only.</p>
+</section>
+
+<section class="panel form-section">
+  <div class="section-heading"><h2><span class="section-number">3</span>Confirm and save</h2></div>
+  <p class="small muted">Saving creates the client and its filing profiles. It does not queue any filing.</p>
+  <div class="confirmation-box">{{ form.confirmed }}<div><label for="{{ form.confirmed.id_for_label }}">{{ form.confirmed.label }}</label>{{ form.confirmed.errors }}</div></div>
+  <div class="form-footer"><a class="button secondary" href="{% url 'workorders:directory-client' %}?name={{ draft.folder|urlencode }}">Cancel</a><button class="button primary" type="submit">Save filing setup</button></div>
+</section>
 </form>
-<details class="panel detail-section"><summary>Extracted text (unverified)</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ draft.transcript }}</pre></details>
+
+<details class="panel review-guidance"><summary>Extracted text (unverified)</summary><pre class="transcript">{{ draft.transcript }}</pre></details>
+</div>
 {% endblock %}

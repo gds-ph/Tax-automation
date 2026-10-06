@@ -1,0 +1,24 @@
+{% comment %}Rendered on page load and re-fetched by task-notices.js, so it must stand alone.
+Ordered by urgency; only the first few are shown until the reader asks for more.{% endcomment %}
+<div class="notice-panel-head">
+  <h2>Notifications {% if notices %}<span class="count unread">{{ notices|length }}</span>{% endif %}</h2>
+  {% if notices %}
+  <form method="post" action="{% url 'workorders:read-all-notices' %}">{% csrf_token %}
+    {% for item in notices %}<input type="hidden" name="token" value="{{ item.token }}">{% endfor %}
+    <button class="text-button" type="submit">Mark all as read</button>
+  </form>
+  {% else %}<span class="small muted">No unread notifications</span>{% endif %}
+</div>
+{% if notices %}
+<ul class="notice-list">
+{% for item in first_notices %}{% include 'workorders/task_notice_row.html' %}{% endfor %}
+</ul>
+{% if more_notices %}
+<details class="notice-more">
+  <summary><span class="more-closed">Show all {{ notices|length }} notifications</span><span class="more-open">Show fewer</span></summary>
+  <ul class="notice-list">
+  {% for item in more_notices %}{% include 'workorders/task_notice_row.html' %}{% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endif %}

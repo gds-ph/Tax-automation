@@ -85,7 +85,8 @@ policy changes are unnecessary when using the explicit Python path above.
 - `automation_api/`: authenticated Stage 1 claims, attempts/leases, result and PDF services, provisioning/recovery commands and tests.
 - `worker/`: Windows PowerShell transfer helper and placeholder configuration; no credentials.
 - `audit/`: append-only audit records, read-only admin, tests.
-- `templates/` and `static/`: dashboard templates and local public CSS; no external CDN.
+- `templates/` and `static/`: dashboard templates and the design-system stylesheet;
+  no external CDN and no downloaded web font.
 - `media/`: private dashboard storage, ignored by Git and never mounted as a URL.
 - `db.sqlite3`: local prototype database, ignored by Git.
 - `docs/architecture.md`: deployment components and deferred integration decisions.
@@ -132,6 +133,51 @@ Protected PDF upload/download and hash verification are implemented. Human
 approval and Stage 2 approval binding remain later work.
 Do not add anonymous media routing, including Django's development media helper.
 VM-local paths are metadata, never browser links or files for Django to open.
+
+## Dashboard design system
+
+`static/dashboard.css` is the single stylesheet: semantic dark/light tokens, a blue
+accent, thin borders, Inter typography, compact spacing, a 220px fixed sidebar with
+a 56px topbar, and bordered cards. The earlier `static/office-theme.css` override
+layer and its separate navy/teal palette were folded into it, so one token set now
+replaces three competing palettes. Tokens are defined on `:root` for light,
+redefined under `:root[data-theme='dark']`, and again under
+`@media (prefers-color-scheme: dark)` guarded by `:root:not([data-theme='light'])`
+so the operating system is followed only when the viewer has not pinned a theme.
+`static/office-theme.js` pins `data-theme` from `localStorage` before first paint;
+the app default is light. Page components must use tokens, never literal colors,
+so both themes stay correct.
+
+Contrast was measured rather than assumed. Against the light surface `#ffffff`, the
+source palette's accent `#4099ff` reaches only 2.91:1, its muted grey `#9ca3af`
+2.54:1, and its danger `#ef4444` 3.76:1. Filled buttons and light-theme links
+therefore use `--accent-action` `#1668d4` (5.30:1), muted text uses `#6b7280`
+(4.83:1), and danger uses `#dc2626` (4.83:1). `#4099ff` is kept for what it reads
+well against: active navigation tints, the tab underline, focus rings, borders, and
+dark-theme link text (6.30:1 on `#14141c`). Dark-theme muted text is `#9494ad`
+(6.19:1). Keep new colors at 4.5:1 or better in both themes.
+
+Below 768px the sidebar becomes compact top navigation rather than a drawer, so no
+JavaScript is required for the shell. Create, edit, prepare and COR review remain
+full-page server-rendered forms, not modals: they re-render with field errors and a
+409 on the optimistic-locking conflicts this app depends on, and that path is
+covered by tests. `.tabs`/`.tab` primitives exist for future use; no navigation is
+tabbed yet, so no URL tab state was added.
+
+No web font is downloaded. `--font` keeps the existing office stack
+(`'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+sans-serif`), which renders as Segoe UI on the office machines unless a viewer has
+Inter installed locally. Adding a self-hosted `@font-face` later would change the
+appearance on every machine, so treat it as a deliberate decision, not a detail.
+Baseline sizes:
+page heading 22px/700, topbar title and section headings 16px/700, body and table
+text 13px, input labels 11px/600, metadata and badges 10–12px, metric values
+22px/700, on a 4/6/8/12/16/20/24/32 spacing scale with 24px page padding.
+
+`templates/workorders/status.html` maps each work-order status to one badge style:
+queued is info, in-progress and awaiting approval are pending, failure and
+review-required statuses are danger, and everything else is neutral. Keep that
+mapping in one place instead of restyling badges per page.
 
 ## Scope and deployment
 

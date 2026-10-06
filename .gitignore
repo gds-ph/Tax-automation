@@ -50,4 +50,9 @@ worker/result.json
 worker/stage2-journal*.json
 worker/stage2-result.json
 tools/caddy/
+receipt_renderer/node_modules/
 worker/dashboard-root.crt
+
+# Generated deployment bundles and one-off local deployment helpers.
+dist/
+deploy-trrc-test.py

@@ -1,0 +1,20 @@
+{% comment %}Rendered on page load and re-fetched by task-notices.js, so it must stand alone.{% endcomment %}
+<div class="notice-panel-head"><h2>Workers</h2><span class="small muted">Refreshes every 15 seconds</span></div>
+{% if workers %}
+<ul class="notice-list">
+{% for item in workers %}
+  <li class="notice-row worker-row">
+    <span class="worker-dot{% if item.online %} online{% else %} offline{% endif %}" aria-hidden="true"></span>
+    <div class="notice-body">
+      <strong class="mono">{{ item.agent.name }}</strong> <span class="pill {% if item.online %}success{% else %}subtle{% endif %}">{{ item.connection }}</span>
+      <span class="row-sub">{{ item.activity }}{% if item.attempt %} · <a href="{% url 'workorders:detail' item.attempt.work_order_id %}">{{ item.attempt.work_order.client_name }} · {{ item.attempt.work_order.form_code }} · {{ item.attempt.work_order.period_label }}</a>{% endif %}</span>
+      {% if item.attempt %}<span class="row-sub mono">{{ item.attempt.work_order.work_order_id }} · claimed {{ item.attempt.started_at|date:'d M Y, g:i A' }}</span>{% endif %}
+    </div>
+    <span class="small muted worker-seen">{% if item.agent.last_seen_at %}Heartbeat {{ item.agent.last_seen_at|date:'g:i:s A' }}<span class="row-sub">{{ item.agent.last_seen_at|date:'d M Y' }}</span>{% else %}No heartbeat yet{% endif %}</span>
+  </li>
+{% endfor %}
+</ul>
+{% else %}
+<p class="muted notice-empty">No workers registered.</p>
+{% endif %}
+<p class="small muted table-note">Activity reflects the server’s current task claim. A heartbeat confirms connectivity, not desktop progress.</p>

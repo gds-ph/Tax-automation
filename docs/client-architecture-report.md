@@ -1,5 +1,7 @@
 # Approved Milestone 2 client architecture revision
 
+> Historical record. Reviewed 2 October 2026: implementation status, permissions, addresses and test counts below refer to the original delivery, not the current deployment. Start with the [current documentation index](README.md). For recovery use [the current guide](worker-preparation-recovery.md); do not replay old reset instructions against a new attempt.
+
 Historical model-refactor report. The subsequent [client dashboard update](client-dashboard-report.md) implements the client-first navigation described as pending below.
 
 Completed on 2026-09-14. This report covers the approved generic model refactor

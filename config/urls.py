@@ -17,9 +17,16 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
-from accounts.views import DashboardLoginView, DashboardLogoutView
+from accounts.views import DashboardLoginView, DashboardLogoutView, registered_users
+from accounts import feishu
+from audit.views import logs, settings_page
 
 urlpatterns = [
+    path("settings/users/", registered_users, name="registered-users"),
+    path('logs/', logs, name='app-logs'),
+    path('settings/operations/', settings_page, name='operation-settings'),
+    path('auth/feishu/login/', feishu.start, name='feishu-login'),
+    path('auth/feishu/callback/', feishu.callback, name='feishu-callback'),
     path('login/', DashboardLoginView.as_view(), name='login'),
     path('logout/', DashboardLogoutView.as_view(), name='logout'),
     path('admin/', admin.site.urls),

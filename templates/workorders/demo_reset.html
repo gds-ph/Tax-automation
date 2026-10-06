@@ -3,10 +3,13 @@
 {% block content %}
 <a class="breadcrumb" href="{% url 'workorders:client-detail' taxpayer.pk %}">← Back to client</a>
 <div class="page-heading"><div><h1>Reset 2026 test filings</h1><p>{{ taxpayer.registered_name }} · 2551Q · Q1–Q4</p></div></div>
+<p><a href="?form=2551Q">2551Q quarterly reset</a> ? <a href="?form=1601C">1601C monthly reset</a></p>
 <section class="panel detail-section">
-<p>This will archive {{ active_count }} active dashboard task{{ active_count|pluralize }} and release these periods for fresh tests. Client details, credentials, audit history and uploaded review PDFs are preserved.</p>
+<p>This will archive {{ active_count }} active dashboard task{{ active_count|pluralize }}. Client details, credentials, audit history and uploaded review PDFs are preserved. Existing submission approvals continue to block duplicate submissions for the same period.</p>
+<p>Resolve any running Stage 2 attempt before resetting. Reset does not retry submission or repair an archive failure.</p>
 <p><strong>VM cleanup is a separate step.</strong> This button downloads a script. Copy it into the VM and run it before creating new tasks. It moves the matching XML returns, PDFs and journal into a private archive.</p>
-<form method="post">{% csrf_token %}{{ form.token }}{{ form.non_field_errors }}{{ form.token.errors }}
+{% if form_code == "1601C" %}<p>The VM script also archives this test TIN?s 1601C XML files for January?December 2026, including files created by manual PAD tests. It leaves 2551Q files and submission receipts untouched.</p>{% endif %}
+<form method="post">{% csrf_token %}{{ form.token }}{{ form.form_code }}{{ form.non_field_errors }}{{ form.token.errors }}
 <p>{{ form.confirmed_stopped }} {{ form.confirmed_stopped.label_tag }} {{ form.confirmed_stopped.errors }}</p>
 <p>{{ form.confirmed_scope }} {{ form.confirmed_scope.label_tag }} {{ form.confirmed_scope.errors }}</p>
 <button class="button primary" type="submit">Reset dashboard &amp; download VM script</button>

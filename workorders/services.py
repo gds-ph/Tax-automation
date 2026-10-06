@@ -13,6 +13,44 @@ from .validators import safe_filename_component
 
 EDITABLE_FIELDS = frozenset({"filing_year", "filing_month", "filing_quarter", "zero_filing", "zero_filing_approved", "form_data"})
 TRANSITIONS = {Status.DRAFT: {Status.READY_TO_PREPARE}, Status.READY_TO_PREPARE: {Status.DRAFT}}
+RETRYABLE_PREPARATION_STATUSES = frozenset({
+    Status.FAILED_SYSTEM, Status.PREPARATION_FAILED_PDF_NOT_FOUND,
+    Status.PREPARATION_FAILED_XML_NOT_FOUND,
+})
+
+
+def preparation_retry_blocker(order):
+    """Shared UI/service guard. Never release an execution slot through retry."""
+    if order.is_archived or order.status not in RETRYABLE_PREPARATION_STATUSES:
+        return 'Only a failed preparation can be retried.'
+    if hasattr(order, 'stage2_approval') or order.preparation_attempts.exclude(state__in=['FAILED', 'ABANDONED']).exists():
+        return 'This filing has an active or successful run and needs operator review.'
+    if not order.preparation_attempts.exists():
+        return 'No completed preparation attempt is available to retry.'
+    if any((order.prepared_pdf, order.prepared_pdf_sha256, order.saved_xml_path, order.prepared_pdf_vm_path)):
+        return 'Prepared files are already recorded. An operator must review them before another preparation.'
+    return ''
+
+
+@transaction.atomic
+def retry_preparation(*, work_order_id, actor, expected_version):
+    require_permission(actor, 'workorders.change_workorder')
+    order = _load_current(work_order_id, expected_version)
+    blocker = preparation_retry_blocker(order)
+    if blocker:
+        raise ValidationError(blocker)
+    validate_readiness(order)
+    old_status = order.status
+    order.status = Status.READY_TO_PREPARE
+    for field in ('preparation_status_output', 'error_code', 'error_message', 'agent_name'):
+        setattr(order, field, '')
+    for field in ('lease_token', 'leased_at', 'lease_expires_at'):
+        setattr(order, field, None)
+    _persist(order, expected_version)
+    AuditEvent.objects.create(work_order=order, snapshot=order.current_snapshot, actor=actor,
+                              kind=AuditEvent.Kind.STATUS_CHANGED, old_status=old_status,
+                              new_status=order.status)
+    return order
 
 
 def _validate_input(data):
@@ -26,7 +64,7 @@ def _sources(profile):
         source.full_clean()
     data = {"schema_version": 1, "origin": "client_filing_profile"}
     for key, source, fields in (("client", client, CLIENT_FIELDS), ("form", form, FORM_FIELDS), ("profile", profile, PROFILE_FIELDS)):
-        data[key] = {name: deepcopy(getattr(source, name)) for name in fields}
+        data[key] = {name: deepcopy(getattr(source, name)) for name in fields if not (key == "client" and name == "rdo_email")}
         data[key]["id"] = str(source.pk)
     return data, {"client": client.version, "form": form.version, "profile": profile.version}
 

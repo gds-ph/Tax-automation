@@ -6,6 +6,29 @@ from django.db import models
 from django.utils import timezone
 
 
+class SystemSetting(models.Model):
+    key = models.CharField(max_length=80, unique=True)
+    value = models.CharField(max_length=200)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['key']
+
+
+class SystemLog(models.Model):
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    event = models.CharField(max_length=60, db_index=True)
+    level = models.CharField(max_length=10, default='INFO', db_index=True)
+    route = models.CharField(max_length=120, blank=True)
+    status = models.PositiveSmallIntegerField(null=True, blank=True)
+    duration_ms = models.PositiveIntegerField(null=True, blank=True)
+    counts = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+
+
 class AuditQuerySet(models.QuerySet):
     def update(self, **kwargs):
         raise ValidationError("Audit events are append-only.")

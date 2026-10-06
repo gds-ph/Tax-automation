@@ -1,5 +1,7 @@
 # Hyper-V worker HTTPS connection
 
+> Historical record. Reviewed 2 October 2026: implementation status, permissions, addresses and test counts below refer to the original delivery, not the current deployment. Start with the [current documentation index](README.md). For recovery use [the current guide](worker-preparation-recovery.md); do not replay old reset instructions against a new attempt.
+
 Prepared 2026-09-14. Dashboard host: 192.168.8.148/21, Domain network profile.
 VM: 192.168.14.135/21. Gateway reported by VM: 192.168.8.1.
 Host-to-VM ping succeeds; VM-to-host ping times out. Test TCP below instead.

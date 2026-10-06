@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
 from django.db import OperationalError
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from .models import WorkOrder
@@ -13,6 +13,7 @@ from .test_support import legacy_test_fixture_order as create_work_order, make_p
 from .test_support import fake_data
 
 
+@override_settings(CLIENT_FILES_URL='')
 class DashboardTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -82,45 +83,17 @@ class DashboardTests(TestCase):
         for suffix in ("", "new/"):
             self.assertEqual(self.client.get(f"/filings/1701q/{suffix}").status_code, 404)
 
-    def test_create_is_fixed_to_selected_filing_and_audited(self):
-        data = self.post_data(client_name="FAKE BRAVO", rdo_code="53a", atc_code="pt010")
-        data.update(form_code="1701Q", expected_form_number="OTHER", year_end_month="06", calendar_year=False,
-                    status="SUBMITTED", approved_for_submission=True, created_by=self.approver.pk)
-        response = self.client.post(reverse("workorders:filing-create", args=["2551q"]), data)
-        self.assertEqual(response.status_code, 302)
-        order = WorkOrder.objects.get(client_name="FAKE BRAVO")
-        self.assertEqual(order.form_code, "2551Q")
-        self.assertEqual(order.expected_form_number, "2551Qv2018")
-        self.assertEqual(order.year_end_month, "12")
-        self.assertTrue(order.calendar_year)
-        self.assertEqual(order.status, "DRAFT")
-        self.assertFalse(order.approved_for_submission)
-        self.assertEqual(order.created_by, self.preparer)
-        self.assertEqual(order.atc_code, "PT 010")
-        self.assertEqual(order.rdo_code, "53A")
-        self.assertEqual(order.tin4, "00000")
-        self.assertEqual(order.audit_events.count(), 1)
+    def test_old_creation_routes_redirect_without_creating_orders(self):
+        count = WorkOrder.objects.count()
+        for url in (reverse("workorders:create"), reverse("workorders:filing-create", args=["2551q"])):
+            self.assertRedirects(self.client.get(url), reverse("workorders:clients"), fetch_redirect_response=False)
+            self.assertRedirects(self.client.post(url, self.post_data()), reverse("workorders:clients"), fetch_redirect_response=False)
+        self.assertEqual(WorkOrder.objects.count(), count)
 
-    def test_administrator_can_create_without_becoming_superuser(self):
-        self.client.force_login(self.administrator)
-        response = self.client.post(reverse("workorders:create"), self.post_data(client_name="FAKE ADMIN ORDER"))
-        self.assertEqual(response.status_code, 302)
-        self.administrator.refresh_from_db()
-        self.assertFalse(self.administrator.is_superuser)
-
-    def test_invalid_create_redisplays_errors_and_preserves_values(self):
-        for atc in ("PT 999", "", "-"):
-            response = self.client.post(reverse("workorders:create"), self.post_data(atc_code=atc))
-            self.assertEqual(response.status_code, 409)
-            self.assertTrue(response.context["form"].errors)
-        self.assertEqual(WorkOrder.objects.count(), 1)
-
-    def test_atc_and_zero_confirmation_not_preselected(self):
-        response = self.client.get(reverse("workorders:create"))
-        form = response.context["form"]
-        self.assertFalse(form["atc_code"].value())
-        self.assertFalse(form["zero_filing_approved"].value())
-        self.assertEqual(len(response.context["atcs"]), 22)
+    def test_work_order_list_has_no_duplicate_create_action(self):
+        response = self.client.get(reverse("workorders:list"))
+        self.assertNotContains(response, 'Create work order')
+        self.assertNotContains(response, reverse("workorders:filing-create", args=["2551q"]))
 
     def test_edit_updates_derived_name_and_history(self):
         data = self.post_data(client_name="FAKE ALPHA", filing_quarter=4)
@@ -204,14 +177,16 @@ class DashboardTests(TestCase):
 
     def test_history_requires_audit_permission_and_escapes_content(self):
         order = create_work_order(actor=self.preparer, data=fake_data(client_name='<script>alert("fake")</script>'))
-        response = self.client.get(reverse("workorders:detail", args=[order.pk]))
+        # History renders on the detail page's Activity tab.
+        history = {"tab": "activity"}
+        response = self.client.get(reverse("workorders:detail", args=[order.pk]), history)
         self.assertContains(response, "&lt;script&gt;")
         self.assertNotContains(response, '<script>alert("fake")</script>')
         self.assertContains(response, "test_preparer")
         reader = get_user_model().objects.create_user(username="limited_reader")
         reader.user_permissions.add(Permission.objects.get(content_type__app_label="workorders", codename="view_workorder"))
         self.client.force_login(reader)
-        response = self.client.get(reverse("workorders:detail", args=[order.pk]))
+        response = self.client.get(reverse("workorders:detail", args=[order.pk]), history)
         self.assertContains(response, "does not have access to activity history")
         self.assertFalse(response.context["history"].object_list)
 

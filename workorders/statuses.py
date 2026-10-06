@@ -2,6 +2,7 @@ from django.db import models
 
 
 class WorkOrderStatus(models.TextChoices):
+    CANCELLED = "CANCELLED", "Cancelled"
     DRAFT = "DRAFT", "Draft"
     READY_TO_PREPARE = "READY_TO_PREPARE", "Ready to prepare"
     PROCESSING_PREPARATION = "PROCESSING_PREPARATION", "Processing preparation"

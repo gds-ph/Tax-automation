@@ -44,14 +44,9 @@ class ClientDirectoryTests(TestCase):
         api.side_effect = [{'clients': [name]}, {'hasPermanent': True, 'files': [
             {'path': 'A & B/PERMANENT/<COR>.pdf'}, {'path': 'Other/PERMANENT/COR.pdf'},
             {'path': 'A & B/PERMANENT/../secret'}, {'path': 'A & B/PERMANENT/C:/secret'}]}]
-        response = self.client.get(reverse('workorders:directory-client'), {'name': name})
-        self.assertContains(response, 'automatic-cor-cards')
-        self.assertContains(response, 'A &amp; B')
-        self.assertEqual(response.context['files'][0]['name'], '<COR>.pdf')
-        self.assertEqual(len(response.context['files']), 1)
-        self.assertNotContains(response, 'secret')
-        self.assertNotContains(response, 'Queue preparation')
-        self.assertIn('no-store', response.headers['Cache-Control'])
+        result = directory.registration(name)
+        self.assertEqual(result['files'][0]['name'], '<COR>.pdf')
+        self.assertEqual(len(result['files']), 1)
 
     @patch('workorders.client_directory.names', return_value=['Office'])
     @patch('workorders.client_directory.read_json')

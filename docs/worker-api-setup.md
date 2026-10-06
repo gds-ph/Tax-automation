@@ -1,32 +1,19 @@
 # Stage 1 worker API and Hyper-V PAD setup
 
-The Django side and Windows transfer helper are implemented and tested locally.
-Your existing `Tax-Filing`, `Tax-Filing - Copy`, and `Stage2_Open_Approved_Return`
-flows have not been edited. No PAD flow or eBIRForms execution has been performed
-by these tests. BIR Submit / Final Copy remains disabled.
+Reviewed 2 October 2026. The API, preparation transfers and Stage 2 integration are implemented. The active server is `https://192.168.8.200:8443`; the Windows VM remains a separate machine. Localhost inside the VM is not the server. Use [Linux deployment](docker-server.md) for current TLS and endpoint setup; the older Windows-host HTTPS guide is historical.
 
-## Current connection boundary
-
-Django still listens only on `127.0.0.1:8001`. Inside the VM, `127.0.0.1` refers
-to the VM itself, not the dashboard host. The helper requires HTTPS for a remote
-connection; HTTP is accepted only for loopback tests. A Caddy HTTPS proxy now
-listens on `192.168.8.148:8443` and accepts worker API paths only from the VM
-at `192.168.14.135`. The host firewall rule still needs Administrator execution;
-VM certificate trust and end-to-end connectivity remain pending.
-See [the concrete HTTPS setup](worker-https.md). Hyper-V networking and Django
-ALLOWED_HOSTS remain unchanged.
+The parent PAD flow is installed and maintained by the operator. Code deployment does not launch PAD or prove its selectors work. Keep dummy rehearsals out of live submission.
 
 ## Prototype policy
 
-- Only `PREPARE_2551QV2018_ZERO` is supported.
+- Supported keys: `PREPARE_2551QV2018_ZERO`, `PREPARE_1601CV2018_ZERO`, `PREPARE_1601EQ_ZERO`, `PREPARE_0619F_ZERO`. The worker must advertise only installed routes.
 - One global execution slot; oldest eligible task first.
 - Lease: 30 minutes. Poll interval: 15 seconds. No automatic retry/reassignment
   after expiry: an expired lease does not prove desktop automation stopped.
 - Stale/inactive configuration is not claimed. An attempt uses its immutable
   snapshot even if the client changes after the claim.
 - A return awaiting review reserves its XML filename against another preparation.
-- Completed/failed work orders cannot be edited into a fresh execution. A retry
-  needs deliberate review and a new work order, with any XML reservation resolved.
+- Failed system/PDF/XML preparation can use **Retry preparation** after the previous attempt finishes or is released. The same order/snapshot and attempt history are retained. Active, successful, archived, approved and file-bearing orders require separate review. Source changes can block retry. See [recovery](worker-preparation-recovery.md).
 
 Constants are in `automation_api/worker_policy.py`. Confirm actual Stage 1
 runtime before the VM test. Start renews the lease; Renew is also available.
@@ -44,8 +31,7 @@ Use the existing authorized superuser's username:
 
 The command writes a new ignored credential file without printing the token.
 It refuses to overwrite a file or reuse an agent name. Django stores only the
-token hash. No real worker credential was issued during development. Its default
-URL is for a dashboard-host loopback health check only:
+token hash. For a new worker, supply the verified server endpoint using `--base-url`. Preserve an existing worker configuration instead of provisioning a duplicate. The default URL is for a loopback health check only:
 
 ```powershell
 $workerConfig = Get-Content -LiteralPath .\secrets\hyperv-worker.json -Raw | ConvertFrom-Json
@@ -65,7 +51,7 @@ and Git. Do not share an agent credential or journal between VMs.
 ## New PAD wrapper: eBIR_Work_Order_Agent
 
 Start the wrapper manually in the VM's interactive session. It calls the existing
-Stage 1 and waits for completion. It does not call either Stage 2 flow. Run only
+Stage 1 and waits for completion. The integrated parent also polls Stage 2 when no preparation work is available; see [Stage 2 setup](stage2-connection.md). Run only
 one wrapper instance. A local mutex serializes helper operations; Django also
 prevents multiple active attempts.
 
@@ -82,8 +68,7 @@ prevents multiple active attempts.
    Tax-Filing. If `HasTask` is False, wait 15 seconds and poll again. On helper
    errors, stop and inspect server/journal rather than using default inputs.
 
-3. Require `Job['AutomationKey']` to equal `PREPARE_2551QV2018_ZERO`.
-   Never route an unknown form to the 2551Q flow.
+3. Validate `Job['AutomationKey']` against the installed routes and dispatch to the matching child. Never route an unknown form to the 2551Q flow. Consult the 1601C, 1601EQ and 0619F integration guides for their exact keys and inputs.
 
 4. Run the same snippet with `-Action Start`; parse its result and require
    `Started = True`. It renews the lease, creates the output directory and
@@ -117,7 +102,7 @@ prevents multiple active attempts.
 | ClientNameSafe | `%Job['Inputs']['ClientNameSafe']%` |
 | OutputFolder | `%Job['Inputs']['OutputFolder']%` |
 
-All 20 inputs are text. OutputFolder is an attempt-specific subfolder under
+The table is the original 2551Q input contract. Monthly flows also use `FilingMonth`; unused quarter/ATC values must not be substituted into monthly filenames. Inputs are text. OutputFolder is an attempt-specific subfolder under
 `C:\TaxAutomation\Working`, created by Start to isolate PDFs. XML stays under
 `C:\eBIRForms\savefile`, with the exact expected filename. Django never opens
 these VM paths.
@@ -156,8 +141,8 @@ worker API access. Responses are JSON and no-store; empty queue/current is 204.
 
 | Method | Route | Request / response |
 | --- | --- | --- |
-| GET | `/api/agent/health/` | Health, API version, poll interval, submission disabled |
-| POST | `/api/agent/preparation/claim/` | JSON `request_id` UUID and `automation_keys: ["PREPARE_2551QV2018_ZERO"]`; claim or 204 |
+| GET | `/api/agent/health/` | Health, API version and poll interval; do not treat its legacy submission field as a per-form capability list |
+| POST | `/api/agent/preparation/claim/` | JSON `request_id` UUID and installed preparation `automation_keys`; claim or 204 |
 | GET | `/api/agent/preparation/current/` | Diagnostic active attempt; no inputs or lease token; never a rerun instruction |
 | POST | `/api/agent/preparation/{AttemptId}/renew/` | JSON `lease_token`; extends a live owned lease |
 | PUT | `/api/agent/preparation/{AttemptId}/pdf/` | Raw application/pdf body; X-Lease-Token and lowercase X-PDF-SHA256 headers |
@@ -176,7 +161,7 @@ delivery; never change the UUID merely to retry a claim. Unexpected exceptions
 return a sanitized 500 response even under local DEBUG.
 
 PDF uploads are limited to 25 MiB, streamed in bounded chunks, hashed and parsed
-as an unencrypted two-page PDF. Obvious embedded actions/attachments are rejected.
+as an unencrypted PDF with the form-specific page count: two for 2551Q/1601C and one for 1601EQ/0619F. Obvious embedded actions/attachments are rejected.
 Storage filenames are generated by Django. Upload alone leaves processing status.
 Completion verifies the stored hash again and records the exact XML result before
 entering Awaiting submission approval. XML metadata is a worker report, not proof
@@ -185,20 +170,13 @@ is not malware scanning; downloads are authenticated attachments, not public URL
 
 ## Operator recovery and review
 
-After confirming the PAD child has actually stopped, use its attempt ID and the
-current work-order version from the admin/detail pages:
+Stop both PAD flows before releasing an interrupted preparation. An authorized operator uses **Release interrupted run** in the filing's Overview. The endpoint binds the attempt to that filing, checks its version and records the release. Merely expired leases are not automatically released.
 
-```powershell
-.\.venv\Scripts\python.exe manage.py stop_preparation --actor YOUR_USERNAME --attempt ATTEMPT_UUID --expected-version CURRENT_VERSION --confirm-stopped
-```
+Install the one-time dashboard recovery bridge from `/worker/recovery-update/` on the VM with both flows stopped. Extract the ZIP and double-click `Install-DashboardRecovery.cmd`. It updates only the bridge and preserves configuration/journals. After dashboard release, restart one parent worker; a matching Running preparation journal is backed up and cleared through the authenticated recovery check. Publishing and Stage 2 journals are excluded.
 
-This audits the operator, marks the attempt abandoned and work order failed, and
-releases the execution slot. It never requeues. It requires agent-change and
-work-order-change permissions. Expired worker leases cannot revive the attempt.
+`POST /api/agent/preparation/{AttemptId}/recovery/` accepts `lease_token`, `work_order_id` and `automation_key`. It is read-only on the server and authorizes local cleanup only for the exact owned abandoned preparation attempt. It never releases an active attempt itself.
 
-Successful reporting exposes a protected PDF download to Preparer, Approver and
-Administrator via a separate permission. The hash is verified on download.
-Approval buttons, Stage 2 leasing and submission endpoints remain absent.
+Regular preparers may choose **Retry preparation** for eligible failed orders after recovery. Worker release/download actions require operator permissions. Protected PDF access and Stage 2 approval use their own permissions. Follow [the recovery guide](worker-preparation-recovery.md) for manual fallback and [Stage 2](stage2-connection.md) for submission uncertainty.
 
 ## Official action references
 

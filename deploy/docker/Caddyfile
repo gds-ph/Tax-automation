@@ -1,0 +1,8 @@
+{
+    auto_https disable_redirects
+    default_sni {$SERVER_BIND_IP}
+}
+{$EBIR_SITE} {
+    tls internal
+    reverse_proxy web:8000
+}

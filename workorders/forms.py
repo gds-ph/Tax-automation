@@ -1,14 +1,74 @@
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import WorkOrder, ClientFilingProfile
+from .models import Client, WorkOrder, ClientFilingProfile
 from .services import EDITABLE_FIELDS
 from automation_api.worker_policy import ENABLED_STATUSES
+
+
+class ClientForm(forms.ModelForm):
+    """Edits the reusable client record through the audited catalog service.
+
+    Client folder path is deliberately absent: it is automation-VM metadata, not
+    a taxpayer detail reviewed on this screen.
+    """
+    expected_version = forms.IntegerField(min_value=1, widget=forms.HiddenInput)
+
+    class Meta:
+        model = Client
+        fields = ('registered_name', 'trade_name', 'client_type', 'tin1', 'tin2', 'tin3', 'tin4',
+                  'rdo_code', 'registered_address', 'zip_code', 'telephone_number', 'email_address', 'rdo_email',
+                  'line_of_business', 'client_code', 'is_active')
+        labels = {'tin1': 'TIN — first 3 digits', 'tin2': 'TIN — next 3 digits',
+                  'tin3': 'TIN — last 3 digits', 'tin4': 'Branch code — 5 digits',
+                  'rdo_code': 'RDO code', 'client_type': 'Taxpayer type',
+                  'client_code': 'Client reference', 'is_active': 'Active'}
+        help_texts = {
+            'rdo_email': 'Optional contact email for the company’s Revenue District Office.',
+            'client_code': 'Used as the client reference on new filings. Existing work-order snapshots keep the reference they were prepared with.',
+            'trade_name': 'Optional. Shown in place of the registered name when present.',
+            'tin4': 'Leading zeros are significant and are never added automatically.',
+        }
+        widgets = {'registered_address': forms.Textarea(attrs={'rows': 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .contact_defaults import contact_for_client
+        for name, value in contact_for_client(self.instance.client_code).items():
+            self.initial[name] = value
+            self.fields[name].disabled = True
+            self.fields[name].help_text = 'Contact used for new filings for this client.'
+
+        self.fields['expected_version'].initial = self.instance.version
+        self.fields['telephone_number'].required = False
+        self.fields['email_address'].required = False
+        self.fields['trade_name'].required = False
+        for name, field in self.fields.items():
+            if not isinstance(field.widget, (forms.HiddenInput, forms.CheckboxInput)):
+                field.widget.attrs['class'] = 'input'
+
+    def clean(self):
+        data = super().clean()
+        if data.get('expected_version') != self.instance.version:
+            raise ValidationError('This client changed. Reload before saving.')
+        names = ('tin1', 'tin2', 'tin3', 'tin4')
+        segments = [data.get(name) for name in names]
+        # Mirrors the COR setup guard, but only for a TIN actually being changed:
+        # nothing here should block an address fix on a pre-existing duplicate.
+        changed = all(segments) and segments != [self.initial.get(name) for name in names]
+        if changed and Client.objects.filter(
+                **dict(zip(names, segments))).exclude(pk=self.instance.pk).exists():
+            raise ValidationError('Another client already uses this TIN and branch code. Reconcile the two records instead of creating a duplicate.')
+        return data
+
+    def changes(self):
+        return {name: self.cleaned_data[name] for name in self.Meta.fields}
 
 
 class WorkOrderForm(forms.Form):
     client_filing_profile = forms.ModelChoiceField(queryset=ClientFilingProfile.objects.none(), label="Client filing profile")
     filing_year = forms.RegexField(regex=r"\A[0-9]{4}\Z", max_length=4)
     filing_quarter = forms.TypedChoiceField(coerce=int, choices=[(q, f"Q{q}") for q in range(1, 5)])
+    filing_month = forms.TypedChoiceField(coerce=int, choices=[(m, f'{m:02d}') for m in range(1, 13)])
     zero_filing = forms.BooleanField(required=False, label="This is a zero filing")
     zero_filing_approved = forms.BooleanField(required=False, label="I have reviewed and confirm this zero filing")
     atc_code = forms.CharField(required=False, label="ATC", help_text="Supply an ATC or use an explicitly configured profile default.")
@@ -18,6 +78,14 @@ class WorkOrderForm(forms.Form):
         self.instance = instance
         super().__init__(*args, **kwargs)
         self.original_status = instance.status if instance else "DRAFT"
+        self.monthly = bool(instance and instance.filing_month is not None)
+        self.fields.pop('filing_quarter' if self.monthly else 'filing_month')
+        if self.monthly:
+            self.fields.pop('atc_code')
+            self.fields['zero_filing_approved'].label = 'I confirm a private agent with no compensation, withholding, attachments, tax relief or prior-month adjustments.'
+        if instance and instance.expected_form_number == '1601EQ':
+            self.fields.pop('atc_code', None)
+            self.fields['zero_filing_approved'].label = 'I confirm a non-amended private-agent return with no withholding, remittances, credits, penalties or attachments.'
         profiles = ClientFilingProfile.objects.select_related("client", "form_definition")
         self.fields["client_filing_profile"].queryset = profiles.filter(is_active=True, client__is_active=True, form_definition__is_active=True,
             form_definition__definition_key="2551qv2018_zero")
@@ -40,7 +108,10 @@ class WorkOrderForm(forms.Form):
         return data
 
     def source_data(self):
-        data = {name: self.cleaned_data[name] for name in ("filing_year", "filing_quarter", "zero_filing", "zero_filing_approved")}
+        data = {name: self.cleaned_data[name] for name in ("filing_year", 'filing_month' if self.monthly else 'filing_quarter', "zero_filing", "zero_filing_approved")}
+        if self.monthly or (self.instance and self.instance.expected_form_number == '1601EQ'):
+            data['form_data'] = {}
+            return data
         atc = self.cleaned_data["atc_code"]
         data["form_data"] = {"atc_code": atc} if atc or self.instance else {}
         return data
@@ -51,6 +122,7 @@ class WorkOrderFilterForm(forms.Form):
     status = forms.ChoiceField(required=False, choices=[("", "All statuses")] + [(key, label) for key, label in WorkOrder.Status.choices if key in ENABLED_STATUSES])
     year = forms.RegexField(regex=r"\A[0-9]{4}\Z", required=False, max_length=4, label="Year")
     quarter = forms.ChoiceField(required=False, choices=[("", "All quarters")] + [(str(q), f"Q{q}") for q in range(1, 5)])
+    month = forms.ChoiceField(required=False, choices=[('', 'All months')] + [(str(m), f'{m:02d}') for m in range(1, 13)])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

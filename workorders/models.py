@@ -14,6 +14,23 @@ from .definitions import get_definition, validate_form_data, validate_period
 from .model_support import ServiceModel
 from .statuses import WorkOrderStatus
 
+# Displayed in red: every state that stops a filing and needs a person to look.
+FAILURE_DISPLAY_STATUSES = frozenset({
+    'PREPARATION_FAILED_PDF_NOT_FOUND', 'PREPARATION_FAILED_XML_NOT_FOUND',
+    'PROFILE_REVIEW_REQUIRED', 'FAILED_SYSTEM', 'FAILED_BUSINESS',
+    'BLOCKED_NOT_APPROVED', 'WORK_ORDER_VERIFICATION_FAILED',
+    'SAVED_RETURN_NOT_UNIQUE', 'SAVED_RETURN_ROW_NOT_FOUND', 'REJECTED',
+})
+
+
+class TaskNoticeRead(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    work_order = models.ForeignKey('WorkOrder', on_delete=models.CASCADE)
+    token = models.CharField(max_length=64)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'work_order'], name='unique_task_notice_read')]
+
 
 class RegistrationSetup(models.Model):
     """Provenance for an explicitly reviewed directory-to-taxpayer link."""
@@ -97,6 +114,8 @@ class WorkOrder(ServiceModel):
     approval_comment = models.TextField(blank=True, editable=False)
     approved_pdf_sha256 = models.CharField(max_length=64, blank=True, validators=[validators.sha256_hex], editable=False)
     version = models.PositiveIntegerField(default=1, editable=False)
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name='assigned_work_orders', editable=False)
+    assignment_version = models.PositiveIntegerField(default=0, editable=False)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_work_orders", editable=False)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(default=timezone.now, editable=False)
@@ -111,7 +130,7 @@ class WorkOrder(ServiceModel):
             models.CheckConstraint(condition=Q(filing_month__isnull=True) | Q(filing_month__gte=1, filing_month__lte=12), name="wo_valid_month"),
             models.CheckConstraint(condition=Q(filing_month__isnull=True) | Q(filing_quarter__isnull=True), name="wo_one_period_granularity"),
             models.CheckConstraint(condition=Q(client__isnull=True, client_filing_profile__isnull=True) | Q(client__isnull=False, client_filing_profile__isnull=False), name="wo_client_profile_pair"),
-            models.CheckConstraint(condition=Q(status__in=["DRAFT", "READY_TO_PREPARE", "PROCESSING_PREPARATION", "AWAITING_SUBMISSION_APPROVAL", "PREPARATION_FAILED_PDF_NOT_FOUND", "PREPARATION_FAILED_XML_NOT_FOUND", "PROFILE_REVIEW_REQUIRED", "FAILED_SYSTEM", "FAILED_BUSINESS"]), name="wo_m2_enabled_statuses"),
+            models.CheckConstraint(condition=Q(status__in=["CANCELLED", "DRAFT", "READY_TO_PREPARE", "PROCESSING_PREPARATION", "AWAITING_SUBMISSION_APPROVAL", "PREPARATION_FAILED_PDF_NOT_FOUND", "PREPARATION_FAILED_XML_NOT_FOUND", "PROFILE_REVIEW_REQUIRED", "FAILED_SYSTEM", "FAILED_BUSINESS"]), name="wo_m2_enabled_statuses"),
             models.CheckConstraint(condition=~Q(status="READY_TO_PREPARE") | Q(zero_filing_approved=True), name="wo_ready_requires_zero_confirmation"),
             models.CheckConstraint(condition=Q(approved_for_submission=False), name="wo_m2_no_submission_approval"),
             models.CheckConstraint(condition=Q(version__gte=1), name="wo_positive_version"),
@@ -148,7 +167,21 @@ class WorkOrder(ServiceModel):
 
     @property
     def review_pdf_filename(self):
-        return f"{self.client_name_safe}_{self.form_code}_{self.filing_year}_Q{self.filing_quarter}_COMPLETE.pdf"
+        period = f'{self.filing_month:02d}' if self.filing_month is not None else f'Q{self.filing_quarter}'
+        return f"{self.client_name_safe}_{self.form_code}_{self.filing_year}_{period}_COMPLETE.pdf"
+
+    @property
+    def period_label(self):
+        return (f'{self.filing_month:02d}/{self.filing_year}' if self.filing_month is not None
+                else f'Q{self.filing_quarter} {self.filing_year}')
+
+    @property
+    def live_submission_available(self):
+        return self.expected_form_number == '2551Qv2018' or (
+            self.expected_form_number == '1601Cv2018' and getattr(settings, 'ENABLE_1601C_SUBMISSION', False)) or (
+            self.expected_form_number == '1601EQ' and getattr(settings, 'ENABLE_1601EQ_SUBMISSION', False)) or (
+            self.expected_form_number == '0619F' and getattr(settings, 'ENABLE_0619F_SUBMISSION', False)) or (
+            self.expected_form_number == '1600VTv2018' and getattr(settings, 'ENABLE_1600VT_SUBMISSION', False))
 
     @property
     def automation_key(self):
@@ -184,7 +217,7 @@ class WorkOrder(ServiceModel):
             if definition:
                 definition.validate_zero(self.zero_filing)
         from automation_api.worker_policy import ENABLED_STATUSES
-        if self.status not in ENABLED_STATUSES:
+        if self.status not in ENABLED_STATUSES and not (self.status == 'CANCELLED' and self.is_archived):
             raise ValidationError("This status is not enabled yet.")
         if self.status == self.Status.READY_TO_PREPARE:
             if self.is_legacy_unlinked or not self.current_snapshot_id:
@@ -200,9 +233,12 @@ class WorkOrder(ServiceModel):
             raise ValidationError("Submission and approval operations remain disabled.")
         if self.status in {self.Status.DRAFT, self.Status.READY_TO_PREPARE}:
             if any(getattr(self, name) for name in ("prepared_pdf", "prepared_pdf_sha256", "prepared_pdf_vm_path", "saved_xml_path",
-                    "preparation_status_output", "lease_token", "leased_at", "lease_expires_at", "agent_name", "attempt_count", "error_code", "error_message")):
+                    "preparation_status_output", "lease_token", "leased_at", "lease_expires_at", "agent_name", "error_code", "error_message")):
                 raise ValidationError("Draft/ready orders cannot contain preparation results or a lease.")
-        else:
+            if self.attempt_count and (self.preparation_attempts.count() != self.attempt_count or
+                    self.preparation_attempts.exclude(state__in=['FAILED', 'ABANDONED']).exists()):
+                raise ValidationError("Queued retries must retain only completed failed preparation attempts.")
+        elif self.status != self.Status.CANCELLED:
             if not self.current_snapshot_id or not self.lease_token or not self.lease_expires_at or not self.agent_name or self.attempt_count < 1:
                 raise ValidationError("Preparation states require a snapshot and assigned lease.")
         if bool(self.prepared_pdf) != bool(self.prepared_pdf_sha256):
@@ -212,6 +248,51 @@ class WorkOrder(ServiceModel):
                 raise ValidationError("Both a protected PDF and the saved XML result are required.")
             if self.preparation_status_output != self.Status.AWAITING_SUBMISSION_APPROVAL:
                 raise ValidationError("A successful preparation result is required.")
+
+    def _operational(self):
+        """The displayed state and its badge tone, decided together so the label
+        and the colour can never disagree. A finished run is green; the label,
+        not the colour, is what says whether the receipt was simulated."""
+        approval = getattr(self, 'stage2_approval', None)
+        receipt = getattr(approval, 'receipt_check', None) if approval else None
+        if receipt and receipt.finalized_at:
+            from email.utils import parseaddr
+            sender = parseaddr(receipt.evidence.get('message', {}).get('from', ''))[1].lower()
+            if sender != 'ebirforms-noreply@bir.gov.ph':
+                return 'Simulation complete - package generated', 'success'
+            return 'Receipt package generated', 'success'
+        if receipt and receipt.received_at:
+            return 'BIR receipt confirmation received', 'success'
+        if receipt and receipt.trrc_escalation_sent_at:
+            return 'TRRC escalation sent - awaiting BIR response', 'warn'
+        if approval and approval.state == 'MANUALLY_SUBMITTED_UNVERIFIED':
+            return 'Manually submitted - BIR confirmation unverified', 'warn'
+        if approval and approval.submission_enabled:
+            labels = {'QUEUED': 'Submission queued', 'RUNNING': 'Submission in progress',
+                      'SUBMITTED_WAITING_FOR_CONFIRMATION': 'Submitted - awaiting BIR confirmation',
+                      'SUBMISSION_UNCONFIRMED': 'Submission unconfirmed - operator review required',
+                      'FAILED_SYSTEM': 'Stage 2 stopped - operator review required',
+                      'ABANDONED': 'Stage 2 stopped after operator review'}
+            tones = {'QUEUED': 'info', 'RUNNING': 'info',
+                     'SUBMITTED_WAITING_FOR_CONFIRMATION': 'warn',
+                     'APPROVED_READY_TO_SUBMIT': 'info',
+                     'SUBMISSION_UNCONFIRMED': 'danger', 'FAILED_SYSTEM': 'danger', 'ABANDONED': 'danger',
+                     'BLOCKED_NOT_APPROVED': 'danger', 'WORK_ORDER_VERIFICATION_FAILED': 'danger',
+                     'SAVED_RETURN_NOT_UNIQUE': 'danger', 'SAVED_RETURN_ROW_NOT_FOUND': 'danger'}
+            return (labels.get(approval.state, approval.state.replace('_', ' ').title()),
+                    tones.get(approval.state, 'warn'))
+        return self.get_status_display(), {
+            'DRAFT': 'subtle', 'READY_TO_PREPARE': 'info', 'PROCESSING_PREPARATION': 'info',
+            'AWAITING_SUBMISSION_APPROVAL': 'warn',
+        }.get(self.status, 'danger' if self.status in FAILURE_DISPLAY_STATUSES else 'subtle')
+
+    @property
+    def operational_status(self):
+        return self._operational()[0]
+
+    @property
+    def operational_tone(self):
+        return self._operational()[1]
 
     def __str__(self):
         return self.work_order_id or str(self.id)
@@ -246,3 +327,36 @@ class WorkOrderSnapshot(ServiceModel):
 
     def __str__(self):
         return f"{self.work_order_id} / snapshot {self.revision}"
+
+
+class RegistrationCardScan(models.Model):
+    """Persistent, unreviewed extraction; never authorizes a filing."""
+    folder = models.CharField(max_length=500, unique=True)
+    status = models.CharField(max_length=20, default='PENDING')
+    preferred_sha256 = models.CharField(max_length=64, blank=True)
+    selection_note = models.CharField(max_length=500, blank=True)
+    documents = models.JSONField(default=list)
+    message = models.CharField(max_length=500, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class SavedCompany(models.Model):
+    """Per-user shortcut to a company. Saving only pins it in that user's list;
+    it never grants, limits or changes access for anyone."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='saved_companies')
+    # Either a configured client or a directory folder that has no client yet.
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, null=True, blank=True, related_name='saved_by')
+    folder = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ('-created_at', 'pk')
+        constraints = [
+            models.UniqueConstraint(fields=('user', 'client'), condition=Q(client__isnull=False), name='saved_unique_client'),
+            models.UniqueConstraint(fields=('user', 'folder'), condition=~Q(folder=''), name='saved_unique_folder'),
+            models.CheckConstraint(condition=(Q(client__isnull=False) & Q(folder='')) | (Q(client__isnull=True) & ~Q(folder='')),
+                                   name='saved_exactly_one_target'),
+        ]
+
+    def __str__(self):
+        return self.folder or str(self.client_id)

@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Logs · eBIR{% endblock %}
+{% block topbar_title %}Logs{% endblock %}
+{% block content %}
+<div class="page-heading"><div><h1>Logs</h1><p class="muted">{% if tab == 'system' %}Sign-ins and application events recorded by the dashboard.{% else %}Filing activity recorded against work orders and configuration.{% endif %}</p></div></div>
+
+<nav class="tabs pills" aria-label="Log types">
+  <a class="tab" href="?tab=system"{% if tab == 'system' %} aria-current="page"{% endif %}>System logs</a>
+  <a class="tab" href="?tab=activity"{% if tab == 'activity' %} aria-current="page"{% endif %}>Filing activity</a>
+</nav>
+
+<section class="panel">
+  {% if tab == 'system' %}
+  <form method="get" class="filter-bar log-filter" aria-label="Filter system logs">
+    <input type="hidden" name="tab" value="system">
+    <div class="field">
+      <label for="level">Level</label>
+      <select id="level" name="level" class="input">
+        <option value="">All levels</option>
+        <option {% if level == 'INFO' %}selected{% endif %}>INFO</option>
+        <option {% if level == 'WARNING' %}selected{% endif %}>WARNING</option>
+        <option {% if level == 'ERROR' %}selected{% endif %}>ERROR</option>
+      </select>
+    </div>
+    <div class="filter-actions">
+      <button class="button secondary" type="submit">Apply filter</button>
+      {% if level %}<a class="text-link" href="?tab=system">Clear</a>{% endif %}
+    </div>
+  </form>
+  {% endif %}
+
+  <div class="table-heading">
+    <h2>{% if tab == 'system' %}System events{% else %}Filing activity{% endif %} <span class="count">{{ page_obj.paginator.count }}</span></h2>
+    <span class="small muted">{% if tab == 'system' %}Kept for 30 days · passwords, tokens and document contents excluded{% else %}Most recent first{% endif %}</span>
+  </div>
+
+  {% if page_obj.object_list %}
+  <div class="table-scroll"><table>
+    <thead><tr><th scope="col">Time</th><th scope="col">Who</th><th scope="col">Event</th><th scope="col">Details</th></tr></thead>
+    <tbody>
+    {% for row in page_obj %}<tr>
+      <td class="small">{{ row.created_at|date:'d M Y' }}<span class="row-sub">{{ row.created_at|date:'H:i:s' }}</span></td>
+      <td>{% if row.actor %}{{ row.actor.get_full_name|default:row.actor.username }}{% elif row.performed_by_agent %}<span class="muted">Worker</span>{% else %}<span class="muted">System / signed out</span>{% endif %}</td>
+      {% if tab == 'system' %}
+      <td><strong>{{ row.event }}</strong><span class="row-sub"><span class="pill {% if row.level == 'ERROR' %}danger{% elif row.level == 'WARNING' %}warn{% else %}subtle{% endif %}">{{ row.level }}</span></span></td>
+      <td class="small">{{ row.route }}{% if row.status %} · HTTP {{ row.status }}{% endif %}{% if row.duration_ms != None %} · {{ row.duration_ms }} ms{% endif %}{% for key, value in row.counts.items %}<span class="row-sub">{{ key }}: {{ value }}</span>{% endfor %}</td>
+      {% else %}
+      <td><strong>{{ row.get_kind_display }}</strong></td>
+      <td class="small">{% if row.work_order %}<span class="mono">{{ row.work_order.work_order_id }}</span> · {% endif %}{{ row.old_status }}{% if row.new_status %} → {{ row.new_status }}{% endif %}{% if row.changed_fields %}<span class="row-sub">{{ row.changed_fields|join:', ' }}</span>{% endif %}</td>
+      {% endif %}
+    </tr>{% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <div class="empty-state"><span class="empty-icon" aria-hidden="true">▤</span><h2>No logs yet</h2><p>{% if level %}No {{ level }} events were recorded in the retained period.{% else %}Events appear here as the dashboard is used.{% endif %}</p>{% if level %}<a class="button secondary" href="?tab=system">Clear filter</a>{% endif %}</div>
+  {% endif %}
+
+  {% if page_obj.has_other_pages %}
+  <nav class="pagination" aria-label="Log pages">
+    {% if page_obj.has_previous %}<a href="?tab={{ tab }}&amp;level={{ level }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?tab={{ tab }}&amp;level={{ level }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+  </nav>
+  {% endif %}
+</section>
+{% endblock %}

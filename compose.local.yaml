@@ -1,0 +1,21 @@
+name: ebir-local-test
+services:
+  web:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    ports:
+      - "127.0.0.1:8002:8000"
+    environment:
+      CLIENT_FILES_URL: http://host.docker.internal:3021
+    volumes:
+      - test-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/login/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+volumes:
+  test-data:

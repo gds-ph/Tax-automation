@@ -5,7 +5,7 @@ from .catalog_services import create_record, require_permission
 from .models import Client, ClientFilingProfile, FormDefinition, RegistrationSetup
 from .cor_forms import TAXPAYER_FIELDS
 
-FORM_KEYS = {'2551Q': '2551qv2018_zero', '1701Q': 'planned_1701q'}
+FORM_KEYS = {'2551Q': '2551qv2018_zero', '1601C': '1601cv2018_zero', '0619F': '0619f_zero', '1600VT': '1600vt_zero', '1701Q': 'planned_1701q'}
 
 
 @transaction.atomic

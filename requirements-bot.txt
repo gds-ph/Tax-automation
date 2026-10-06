@@ -1,0 +1,5 @@
+# Feishu assistant bot (feishu_bot); installed only in the bot image.
+-r requirements.txt
+anthropic==1.11.0
+lark-oapi==1.7.3
+playwright==1.63.0

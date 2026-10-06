@@ -22,6 +22,15 @@ try {
     catch [Threading.AbandonedMutexException] { $mutexHeld = $true }
     if (-not $mutexHeld) { throw 'Another worker operation is running. Start only one agent flow per VM.' }
 $config = Get-Content -LiteralPath $configFile -Raw | ConvertFrom-Json
+$automationKeys = @('PREPARE_2551QV2018_ZERO')
+if ($config.PSObject.Properties.Name -contains 'PreparationAutomationKeys') {
+    $automationKeys = @($config.PreparationAutomationKeys)
+}
+$allowedAutomationKeys = @('PREPARE_2551QV2018_ZERO','PREPARE_1601CV2018_ZERO','PREPARE_1601EQ_ZERO','PREPARE_0619F_ZERO','PREPARE_1600VT_ZERO')
+if ($automationKeys.Count -eq 0 -or @($automationKeys | Where-Object { $_ -notin $allowedAutomationKeys }).Count -gt 0 -or @($automationKeys | Select-Object -Unique).Count -ne $automationKeys.Count) {
+    throw 'Invalid configured automation keys.'
+}
+
 $apiRoot = ([string]$config.ApiBaseUrl).TrimEnd('/')
 $apiUri = [Uri]$apiRoot
 if ($apiUri.UserInfo -or $apiUri.Query -or $apiUri.Fragment -or $apiUri.AbsolutePath -ne '/') { throw 'Invalid API base URL.' }
@@ -82,6 +91,37 @@ if ($Action -eq 'Health') {
 $journal = $null
 if (Test-Path -LiteralPath $journalPath) { $journal = Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json }
 if ($Action -eq 'Poll') {
+    $stage2JournalPath = Join-Path $workerFolder 'stage2-journal.json'
+    if (Test-Path -LiteralPath $stage2JournalPath) {
+        $stage2Journal = Get-Content -LiteralPath $stage2JournalPath -Raw | ConvertFrom-Json
+        if ($stage2Journal.Phase -eq 'ArchivePending') {
+            @{ HasTask=$false; RecoveryRequired=$true; Message='Submission recorded; archive pending. Retry Stage2Bridge -Action Archive only. Do not resubmit.' } | ConvertTo-Json
+            return
+        }
+    }
+    if ($null -ne $journal -and $journal.Phase -eq 'Running' -and $null -eq $journal.Result) {
+        $pending = $journal.Claim
+        $pendingId = [guid]::Parse([string]$pending.AttemptId).ToString()
+        if ([string]$pending.AutomationKey -notin $allowedAutomationKeys) { throw 'Unsupported pending preparation.' }
+        $recovery = Invoke-WorkerApi 'POST' ("/api/agent/preparation/$pendingId/recovery/") @{
+            lease_token=[string]$pending.LeaseToken; work_order_id=[string]$pending.WorkOrderId;
+            automation_key=[string]$pending.AutomationKey
+        }
+        if ($recovery.ClearPending -eq $true -and
+            [string]$recovery.AttemptId -ceq $pendingId -and
+            [string]$recovery.WorkOrderId -ceq [string]$pending.WorkOrderId -and
+            [string]$recovery.AutomationKey -ceq [string]$pending.AutomationKey) {
+            # The dashboard operator confirmed that both desktop flows stopped.
+            # Preserve the exact old journal before retiring only this released attempt.
+            $backupPath = $journalPath + '.released-' + [guid]::NewGuid().ToString('N') + '.bak'
+            Copy-Item -LiteralPath $journalPath -Destination $backupPath -ErrorAction Stop
+            $journal.Phase='Completed'; $journal.Claim=$null; $journal.Result=$null
+            Write-Journal $journal
+            @{ HasTask=$false; RecoveryRequired=$false; PendingCleared=$true;
+               Message='Dashboard-released preparation cleared. The worker can poll again.' } | ConvertTo-Json
+            return
+        }
+    }
     if ($null -ne $journal -and $journal.Phase -in @('Running','Publishing')) {
         @{ HasTask=$false; RecoveryRequired=$true; Message='An earlier task was started. Do not rerun Tax-Filing. Resume reporting or request operator review.' } | ConvertTo-Json
         return
@@ -90,8 +130,15 @@ if ($Action -eq 'Poll') {
         $journal = [pscustomobject]@{ RequestId=[guid]::NewGuid().ToString(); Phase='Requesting'; Claim=$null; Result=$null }
         Write-Journal $journal
     }
+    if ($null -eq $journal -or $journal.Phase -in @('Completed','Requesting')) {
+        $helperRoot = if ($PSScriptRoot) { $PSScriptRoot } else { 'C:\TaxAutomation' }
+        $cleanupHelper = Join-Path $helperRoot 'Archive-CancelledReturn.ps1'
+        if (Test-Path -LiteralPath $cleanupHelper) {
+            & $cleanupHelper -ConfigPath $configFile
+        }
+    }
     # Repeating this UUID recovers a lost claim response without claiming another job.
-    $claim = Invoke-WorkerApi 'POST' '/api/agent/preparation/claim/' @{ request_id=$journal.RequestId; automation_keys=@('PREPARE_2551QV2018_ZERO') }
+    $claim = Invoke-WorkerApi 'POST' '/api/agent/preparation/claim/' @{ request_id=$journal.RequestId; automation_keys=$automationKeys }
     if ($null -eq $claim) { @{ HasTask=$false; RecoveryRequired=$false } | ConvertTo-Json; return }
     if ($claim.State -ne 'RUNNING') {
         $journal.Phase='Completed'; Write-Journal $journal
@@ -106,7 +153,7 @@ if ($null -eq $journal -or $null -eq $journal.Claim) { throw 'No claimed job in 
 $claim = $journal.Claim
 if ($Action -eq 'Start') {
     if ($journal.Phase -ne 'ReadyToRun') { throw 'This job was already started or is not ready. Never run Tax-Filing twice.' }
-    if ($claim.AutomationKey -ne 'PREPARE_2551QV2018_ZERO') { throw 'Unsupported automation key.' }
+    if ($claim.AutomationKey -notin $automationKeys) { throw 'Unsupported automation key.' }
     $renewal=Invoke-WorkerApi 'POST' $claim.RenewUrl @{ lease_token=$claim.LeaseToken }
     $claim.LeaseExpiresAt=$renewal.LeaseExpiresAt
     [IO.Directory]::CreateDirectory([string]$claim.Inputs.OutputFolder) | Out-Null
@@ -143,7 +190,22 @@ if ($Action -eq 'Publish') {
         $uploadHeaders=@{ Authorization=$headers.Authorization; 'X-Lease-Token'=$claim.LeaseToken; 'X-PDF-SHA256'=$hash }
         try {
             Invoke-WebRequest -UseBasicParsing -Uri ($apiRoot+$claim.PdfUploadUrl) -Method Put -Headers $uploadHeaders -ContentType 'application/pdf' -InFile $outputs.PreparedPdfPath -TimeoutSec 120 -MaximumRedirection 0 | Out-Null
-        } catch { throw 'PDF upload failed. Retry Publish only; do not rerun Tax-Filing.' }
+        } catch {
+            $detail = 'PDF upload failed.'
+            $response = $_.Exception.Response
+            if ($null -ne $response) {
+                $status = [int]$response.StatusCode
+                $body = ''
+                try {
+                    $reader = New-Object IO.StreamReader($response.GetResponseStream())
+                    $body = $reader.ReadToEnd()
+                    $reader.Dispose()
+                } catch { $body = '' }
+                if ($body.Length -gt 500) { $body = $body.Substring(0, 500) }
+                $detail = "PDF upload failed (HTTP $status): $body"
+            }
+            throw ($detail + ' Retry Publish only; do not rerun Tax-Filing.')
+        }
     }
     $result=Invoke-WorkerApi 'POST' $claim.ResultUrl @{
         lease_token=$claim.LeaseToken; PreparationStatusOutput=[string]$outputs.PreparationStatusOutput;

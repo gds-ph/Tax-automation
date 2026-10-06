@@ -4,7 +4,8 @@ from django.contrib.auth.models import Group
 from django.test import TestCase, Client as BrowserClient, override_settings
 from django.urls import reverse
 from workorders.models import WorkOrder, WorkOrderSnapshot, ClientFilingProfile, FormDefinition
-from workorders.test_support import make_profile
+from workorders.test_support import make_profile, order_data
+from workorders.services import create_work_order
 from workorders.catalog_services import update_record, create_record
 
 
@@ -23,7 +24,7 @@ class ClientNavigationTests(TestCase):
 
     def post_data(self):
         response=self.client.get(self.url)
-        return dict(request_token=response.context['form']['request_token'].value(),filing_year='2026',filing_quarter='3',atc_code='pt010',zero_filing_approved='on')
+        return dict(filing_mode='ZERO',request_token=response.context['form']['request_token'].value(),filing_year='2026',filing_quarter='3',atc_code='pt010',zero_filing_approved='on')
 
     def test_home_and_sidebar_start_with_clients(self):
         response=self.client.get('/')
@@ -44,6 +45,123 @@ class ClientNavigationTests(TestCase):
         update_record(model=ClientFilingProfile,pk=self.profile.pk,actor=self.actor,expected_version=1,changes={'is_active':False})
         response=self.client.get(reverse('workorders:client-detail',args=[self.profile.client_id]))
         self.assertNotContains(response,'Prepare 2551Q')
+
+    def test_client_tabs_select_sections_from_the_url(self):
+        detail=reverse('workorders:client-detail',args=[self.profile.client_id])
+        cards=self.client.get(detail)
+        self.assertContains(cards,'Prepare 2551Q');self.assertNotContains(cards,'Registered details')
+        details=self.client.get(detail,{'tab':'details'})
+        self.assertContains(details,'Registered details');self.assertContains(details,'FAKE ADDRESS')
+        self.assertNotContains(details,'Prepare 2551Q')
+        history=self.client.get(detail,{'tab':'history'})
+        self.assertContains(history,'Filing history');self.assertNotContains(history,'Prepare 2551Q')
+
+    def test_unknown_tab_falls_back_and_keeps_other_parameters(self):
+        detail=reverse('workorders:client-detail',args=[self.profile.client_id])
+        self.assertContains(self.client.get(detail,{'tab':'../etc'}),'Prepare 2551Q')
+        response=self.client.get(detail,{'tab':'details','q':'keep-me'})
+        self.assertContains(response,'q=keep-me')
+
+    def test_saving_a_company_is_private_and_survives_a_directory_outage(self):
+        from workorders.models import SavedCompany
+        taxpayer=self.profile.client
+        saved=reverse('workorders:saved-toggle')
+        clients=reverse('workorders:clients')
+        # No saved companies yet: the list opens on every client.
+        self.assertContains(self.client.get(clients),'FAKE CLIENT TWO')
+        self.client.post(saved,{'client':str(taxpayer.pk)})
+        self.assertEqual(SavedCompany.objects.filter(user=self.actor,client=taxpayer).count(),1)
+        page=self.client.get(clients)
+        self.assertContains(page,'FAKE CLIENT ONE');self.assertNotContains(page,'FAKE CLIENT TWO')
+        self.assertContains(self.client.get(clients,{'tab':'all'}),'FAKE CLIENT TWO')
+        # Another user's list is unaffected, and they can still open the company.
+        other=get_user_model().objects.create_superuser(username='fake_other_preparer')
+        browser=BrowserClient();browser.force_login(other)
+        self.assertNotContains(browser.get(clients,{'tab':'saved'}),'FAKE CLIENT ONE')
+        self.assertEqual(browser.get(reverse('workorders:client-detail',args=[taxpayer.pk])).status_code,200)
+        # Posting again unsaves it.
+        self.client.post(saved,{'client':str(taxpayer.pk)})
+        self.assertFalse(SavedCompany.objects.filter(user=self.actor).exists())
+
+    def test_saved_folder_resolves_to_its_client_once_reviewed(self):
+        from workorders.models import RegistrationSetup, SavedCompany
+        taxpayer=self.profile.client
+        SavedCompany.objects.create(user=self.actor,folder='FAKE FOLDER')
+        RegistrationSetup.objects.create(folder='FAKE FOLDER',client=taxpayer,source_path='FAKE FOLDER/COR.pdf',
+            source_sha256='0'*64,source_text='fake',reviewed_forms=['2551Q'],reviewed_by=self.actor)
+        page=self.client.get(reverse('workorders:clients'),{'tab':'saved'})
+        self.assertContains(page,'FAKE CLIENT ONE')
+
+    def test_saved_toggle_requires_post_and_one_target(self):
+        saved=reverse('workorders:saved-toggle')
+        self.assertEqual(self.client.get(saved).status_code,405)
+        self.assertEqual(self.client.post(saved,{}).status_code,404)
+        self.assertEqual(self.client.post(saved,{'client':str(self.profile.client_id),'folder':'BOTH'}).status_code,404)
+        csrf=BrowserClient(enforce_csrf_checks=True);csrf.force_login(self.actor)
+        self.assertEqual(csrf.post(saved,{'folder':'FAKE'}).status_code,403)
+
+    def edit_data(self, **changes):
+        taxpayer = self.profile.client
+        data = {name: getattr(taxpayer, name) for name in (
+            'registered_name', 'trade_name', 'client_type', 'tin1', 'tin2', 'tin3', 'tin4', 'rdo_code',
+            'registered_address', 'zip_code', 'telephone_number', 'email_address', 'line_of_business', 'client_code')}
+        data.update(expected_version=taxpayer.version, is_active='on')
+        data.update(changes)
+        return data
+
+    def test_client_edit_saves_audited_change_and_keeps_prepared_snapshots(self):
+        taxpayer=self.profile.client
+        order=create_work_order(actor=self.actor,client_filing_profile_id=self.profile.pk,data=order_data())
+        url=reverse('workorders:client-edit',args=[taxpayer.pk])
+        self.assertContains(self.client.get(url),'Edit company details')
+        response=self.client.post(url,self.edit_data(registered_address='NEW ADDRESS ONLY'))
+        self.assertRedirects(response,reverse('workorders:client-detail',args=[taxpayer.pk])+'?tab=details')
+        taxpayer.refresh_from_db();order.refresh_from_db()
+        self.assertEqual(taxpayer.registered_address,'NEW ADDRESS ONLY')
+        self.assertEqual(taxpayer.version,2)
+        # The prepared filing keeps the address it was reviewed with.
+        self.assertEqual(order.registered_address,'FAKE ADDRESS')
+        self.assertEqual(order.current_snapshot.data['client']['registered_address'],'FAKE ADDRESS')
+
+    def test_rdo_email_is_optional_validated_and_separate_from_filing_email(self):
+        from workorders.contact_defaults import COMPANY_CONTACT
+        taxpayer = self.profile.client
+        url = reverse('workorders:client-edit', args=[taxpayer.pk])
+        invalid = self.client.post(url, self.edit_data(rdo_email='invalid'))
+        self.assertContains(invalid, 'Enter a valid email address')
+        response = self.client.post(url, self.edit_data(rdo_email='rdo@example.com'))
+        self.assertEqual(response.status_code, 302)
+        taxpayer.refresh_from_db()
+        self.assertEqual(taxpayer.rdo_email, 'rdo@example.com')
+        self.assertEqual(taxpayer.email_address, COMPANY_CONTACT['email_address'])
+        detail = reverse('workorders:client-detail', args=[taxpayer.pk])
+        self.assertContains(self.client.get(detail, {'tab': 'details'}), 'rdo@example.com')
+        cleared = self.client.post(url, self.edit_data(rdo_email=''))
+        self.assertEqual(cleared.status_code, 302)
+        taxpayer.refresh_from_db()
+        self.assertEqual(taxpayer.rdo_email, '')
+
+    def test_client_edit_refuses_stale_version_and_duplicate_tin(self):
+        taxpayer=self.profile.client
+        url=reverse('workorders:client-edit',args=[taxpayer.pk])
+        stale=self.client.post(url,self.edit_data(expected_version=99,registered_name='STALE'))
+        self.assertContains(stale,'Reload before saving',status_code=200)
+        # The shared fixture TIN must not block an unrelated edit; only a real change collides.
+        distinct=make_profile(self.actor,client_data={'tin1':'111','tin2':'222','tin3':'333','tin4':'00001'}).client
+        clash=self.client.post(url,self.edit_data(tin1=distinct.tin1,tin2=distinct.tin2,tin3=distinct.tin3,tin4=distinct.tin4))
+        self.assertContains(clash,'Another client already uses this TIN')
+        taxpayer.refresh_from_db()
+        self.assertEqual(taxpayer.version,1)
+
+    def test_client_edit_requires_change_permission(self):
+        self.client.logout()
+        viewer=get_user_model().objects.create_user(username='fake_viewer')
+        viewer.groups.add(Group.objects.get(name='Approver'))
+        self.client.force_login(viewer)
+        url=reverse('workorders:client-edit',args=[self.profile.client_id])
+        self.assertEqual(self.client.get(url).status_code,403)
+        detail=self.client.get(reverse('workorders:client-detail',args=[self.profile.client_id]),{'tab':'details'})
+        self.assertNotContains(detail,'Edit details')
 
     def test_preparation_get_has_no_side_effects(self):
         response=self.client.get(self.url)
@@ -133,3 +251,18 @@ class ClientNavigationTests(TestCase):
         self.assertEqual(self.client.get(self.url).status_code,403)
         csrf=BrowserClient(enforce_csrf_checks=True);csrf.force_login(self.actor)
         self.assertEqual(csrf.post(self.url,{}).status_code,403)
+
+class FilingModeTests(TestCase):
+    def test_nonzero_and_missing_mode_cannot_be_queued_as_zero(self):
+        from .client_views import PreparationForm
+        for mode in ('NONZERO', ''):
+            form = PreparationForm({'filing_mode': mode, 'filing_year': '2026',
+                'filing_quarter': '2', 'zero_filing_approved': 'on', 'request_token': 'test'})
+            self.assertFalse(form.is_valid())
+            self.assertIn('filing_mode', form.errors)
+
+    def test_uncertain_2551q_still_shows_automation_support(self):
+        from .registration_cards import card_actions
+        cards = card_actions([{'code': '2551Q', 'uncertain': True}, {'code': '1701Q', 'uncertain': False}])
+        self.assertTrue(cards[0]['can_prepare'])
+        self.assertFalse(cards[1]['can_prepare'])

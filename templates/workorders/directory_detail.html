@@ -1,20 +1,80 @@
 {% extends 'base.html' %}
-{% block title %}{{ name }} · Registration files{% endblock %}
+{% load static %}
+{% block title %}{{ name }} · {{ tab_label }}{% endblock %}
 {% block content %}
-<a class="breadcrumb" href="{% url 'workorders:clients' %}">← Clients</a>
-<div class="page-heading"><div><p class="eyebrow">Client directory</p><h1>{{ name }}</h1><p class="muted">Registration documents from this client's PERMANENT folders.</p></div></div>
-{% if setup %}<p class="button-row"><a class="button primary" href="{% url 'workorders:client-detail' setup.client_id %}">View filing forms →</a></p>{% else %}<div class="notice">The AI reads this client?s registration PDFs through the configured GDS provider and identifies filing cards automatically.</div>{% endif %}
-<h2>Filings from 2303</h2>
-{% if error %}<div class="notice" role="alert">{{ error }}</div>
-{% elif setup %}<p><a class="button primary" href="{% url 'workorders:client-detail' setup.client_id %}">View filing cards</a></p>
-{% elif perms.workorders.add_client and perms.workorders.add_clientfilingprofile and perms.workorders.view_clientfilingprofile and perms.workorders.view_formdefinition %}
-{% if incomplete %}<p class="notice">Some folders could not be fully searched. Results may be incomplete.</p>{% endif %}
-<p class="small muted">Reading registration documents automatically. Separate certificates remain separate; identical PDFs are shown once. Cards reflect the source document and may need review before preparation.</p>
-<div id="automatic-cor-cards">
-{% for file in files %}<section class="cor-auto-source" data-endpoint="{% url 'workorders:cor-read' %}" data-token="{{ file.token }}"><p class="notice" role="status">Waiting to read certificate {{ forloop.counter }}?</p></section>
-{% empty %}<p>No matching COR or 2303 PDFs found.</p>{% endfor %}
+<a class="breadcrumb" data-clients-back href="{% url 'workorders:clients' %}">← Clients</a>
+<div class="page-heading"><div><p class="eyebrow">{{ name }}</p><h1>{{ name }}</h1><p class="muted">{% if tab == 'details' %}Registered taxpayer details for this client.{% elif tab == 'history' %}Filings prepared for this client.{% else %}Choose a form to prepare a filing for this client.{% endif %}</p></div></div>
+
+{% if setup %}
+<h2>Available forms</h2>
+<p><a class="button primary" href="{% url 'workorders:client-detail' setup.client_id %}">View filing forms →</a></p>
+{% for file in files %}<p><a href="{{ file.url }}" target="_blank" rel="noopener">{{ file.name }}</a></p>{% endfor %}
+{% if error %}<p class="notice">{{ error }}</p>{% endif %}
+
+{% else %}
+<nav class="tabs pills" aria-label="Company sections">
+{% for value, label, url in tabs %}<a class="tab" href="{{ url }}"{% if value == tab %} aria-current="page"{% endif %}>{{ label }}{% if value == 'filings' and card_count %}<span class="tab-count">{{ card_count }}</span>{% endif %}</a>{% endfor %}
+</nav>
+
+{% if tab == 'details' and not card_groups %}
+<section class="panel"><h2>Filing contact</h2><p class="small muted">Shared contact used for all company filings.</p><dl class="details"><dt>Telephone</dt><dd>{{ company_contact.telephone_number }}</dd><dt>Email</dt><dd>{{ company_contact.email_address }}</dd>
+      <dt>RDO email</dt><dd>{{ setup.client.rdo_email|default:default_rdo_email }}</dd></dl></section>
+{% endif %}
+{% if card_groups %}
+{% if tab == 'details' %}
+<div class="section-heading"><span class="small muted">Certificate details need review</span><a class="button secondary small" href="{% url 'workorders:cor-review' card_groups.0.draft_id %}">Edit details</a></div>
+<div class="notice error">These details were read from the certificate and have not been reviewed. Complete the required fields and save the filing setup before preparing a return.</div>
+{% for group in card_groups %}
+<div class="detail-grid directory-detail-grid"><section class="panel detail-section">
+  <div class="section-heading"><h2>Registered details</h2><a class="button secondary small" href="{{ group.source_url }}" target="_blank" rel="noopener">View 2303 / COR ↗</a></div>
+  <dl class="details">
+    <dt>Registered name</dt><dd{% if not group.draft.initial.registered_name %} class="missing-value"{% endif %}>{{ group.draft.initial.registered_name|default:'Needs review' }}</dd>
+    <dt>Trade name</dt><dd class="missing-value">Needs review</dd>
+    <dt>Client code</dt><dd class="missing-value">Needs review</dd>
+    <dt>Taxpayer type</dt><dd{% if not group.draft.initial.client_type %} class="missing-value"{% endif %}>{{ group.draft.initial.client_type|default:'Needs review' }}</dd>
+    <dt>TIN</dt><dd class="mono{% if not group.draft.initial.tin1 or not group.draft.initial.tin2 or not group.draft.initial.tin3 or not group.draft.initial.tin4 %} missing-value{% endif %}">{{ group.draft.initial.tin1|default:'—' }}-{{ group.draft.initial.tin2|default:'—' }}-{{ group.draft.initial.tin3|default:'—' }}-{{ group.draft.initial.tin4|default:'—' }}</dd>
+    <dt>RDO code</dt><dd{% if not group.draft.initial.rdo_code %} class="missing-value"{% endif %}>{{ group.draft.initial.rdo_code|default:'Needs review' }}</dd>
+    <dt>Line of business</dt><dd{% if not group.draft.initial.line_of_business %} class="missing-value"{% endif %}>{{ group.draft.initial.line_of_business|default:'Needs review' }}</dd>
+    <dt>Status</dt><dd class="missing-value">Needs review</dd>
+  </dl>
+  </section>
+  <section class="panel detail-section">
+    <h2>Contact and address</h2><p class="small muted">Shared email and telephone used for all company filings.</p>
+    <dl class="details">
+      <dt>Registered address</dt><dd{% if not group.draft.initial.registered_address %} class="missing-value"{% endif %}>{{ group.draft.initial.registered_address|default:'Needs review' }}</dd>
+      <dt>ZIP code</dt><dd{% if not group.draft.initial.zip_code %} class="missing-value"{% endif %}>{{ group.draft.initial.zip_code|default:'Needs review' }}</dd>
+      <dt>Telephone</dt><dd>{{ company_contact.telephone_number }}</dd>
+      <dt>Email</dt><dd>{{ company_contact.email_address }}</dd>
+      <dt>RDO email</dt><dd>{{ setup.client.rdo_email|default:default_rdo_email }}</dd>
+      <dt>Year basis</dt><dd{% if not group.draft.initial.calendar_or_fiscal %} class="missing-value"{% endif %}>{{ group.draft.initial.calendar_or_fiscal|default:'Needs review' }}{% if group.draft.initial.year_end_month %} · year end {{ group.draft.initial.year_end_month }}{% endif %}</dd>
+    </dl>
+  </section>
+  <section class="directory-review-notices">
+    {% for warning in group.draft.warnings %}<p class="notice error">{{ warning }}</p>{% endfor %}
+    <p class="small muted">Read by {{ group.draft.model }} from {{ group.draft.path }}</p>
+    <div class="button-row"><a class="button primary" href="{% url 'workorders:cor-review' group.draft_id %}">Complete required fields →</a></div>
+  </section>
 </div>
-<form id="cor-auto-csrf" hidden>{% csrf_token %}</form>
-{% load static %}<script src="{% static 'cor-cards.js' %}" defer></script>
-{% else %}<p>Your account does not have permission to generate filing cards.</p>{% endif %}
+{% endfor %}
+
+{% elif tab == 'history' %}
+<section class="panel">
+  <div class="empty-state"><span class="empty-icon" aria-hidden="true">▤</span><h2>No filings yet</h2><p>This company has no reviewed filing setup, so no work orders exist. Review its registration cards to create one.</p><a class="button secondary" href="?name={{ name|urlencode }}&amp;tab=filings">Go to filing cards</a></div>
+</section>
+
+{% else %}
+<p class="small muted">Saved registration cards · {{ scan.updated_at|date:'d M Y, g:i A' }}. Review the setup before preparing a filing.</p>
+{% if scan.message %}<p class="notice">{{ scan.message }}</p>{% endif %}
+{% if selection_note %}<p class="small muted">{{ selection_note }}</p>{% endif %}
+{% if other_certificates %}<details><summary>Other COR copies</summary>{% for certificate in other_certificates %}<p><a href="{{ certificate.url }}" target="_blank" rel="noopener">{{ certificate.name }}</a></p>{% endfor %}</details>{% endif %}
+{% for group in card_groups %}{% include 'workorders/cor_cards.html' with draft=group.draft draft_id=group.draft_id cards=group.cards digest=group.digest source_url=group.source_url %}{% endfor %}
+{% endif %}
+
+{% else %}
+{% if scan.status == 'EMPTY' %}<p class="notice">No matching COR or 2303 PDFs found. Add the registration PDF to this company's PERMANENT folder for the next background scan.</p>
+{% elif scan.status == 'ERROR' %}<p class="notice">{{ scan.message }}</p>
+{% elif scan.status == 'READY' %}<p class="notice">Your account does not have permission to view filing setup cards.</p>
+{% else %}<p class="notice">This company's registration cards are queued for the background scan. Opening this page does not start a new scan.</p>{% endif %}
+{% endif %}
+{% endif %}
 {% endblock %}

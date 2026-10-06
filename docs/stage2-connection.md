@@ -1,45 +1,116 @@
-# Stage 2 connection: reopening and validation
+# Stage 2: approved submission connection
 
-This integration runs the Stage 2 flow described in the handoff document. It does NOT enable Submit / Final Copy or send a return to BIR. Dashboard approval is stored separately as approval for this rehearsal, bound to the current snapshot and PDF hash. The existing actual-submission flag stays false.
+Reviewed 2 October 2026. The detailed 2551Q mapping below is the original route example. Current routing also includes `SUBMIT_1601CV2018`, `SUBMIT_1601EQ` and `SUBMIT_0619F`; use each form integration guide for exact inputs and filenames. Installed selectors must be verified separately.
 
-## VM setup
+The dashboard now supports explicit submission approval. Earlier rehearsal approvals
+remain rehearsal-only; they are never upgraded. No PAD flow is remotely edited or
+started by deploying this code. Complete the VM/PAD mapping below before approving.
+Do not approve the Q1 return already submitted manually: the API cannot discover
+manual BIR submissions. Success means the app reported success, not verified BIR acceptance.
 
-1. Stop the agent flow and close eBIRForms between jobs. Copy worker/Stage2Bridge.ps1 into C:\TaxAutomation\Stage2Bridge.ps1. Keep worker.json and all journals unchanged.
-2. Give the Stage 2 desktop flow an unambiguous name (for example eBIR_Stage2_Revalidate). Keep its Submit / Final Copy action disabled. Remove temporary blocking message dialogs for unattended execution. Its output variable must be SubmissionStatus.
-3. In the existing agent wrapper, inside If Job['HasTask'] = False, BEFORE Wait 15 / Next loop, add the Stage 2 block below. This lets Stage 1 and Stage 2 share one PAD agent. Do not run a second independent agent concurrently.
+## 1. Deploy the bridge
 
-## Stage 2 block
+Stop the wrapper between tasks. Copy `worker/Stage2Bridge.ps1` from this project to
+`C:\TaxAutomation\Stage2Bridge.ps1` inside the VM. Preserve worker.json and both journals.
+Use the same worker credentials as Stage 1. Do not run a separate competing agent.
 
-Run PowerShell script, output Stage2Response:
+## 2. Update Stage2_Open_Approved_Return
 
+Keep the working selectors. Replace test constants with input variables.
+Inputs already used: TIN1, TIN2, TIN3, TIN4, RDOCode, FormSelectionText,
+ExpectedFormNumber, FilingYear, FilingQuarter, YearEndMonth, ApprovedForSubmission,
+WorkOrderId, ApprovalId, ApprovedBy.
+
+Add inputs:
+- SubmissionEnabled (Boolean, default False)
+- ApprovedReturnPeriod (Text)
+- ApprovedSavedReturnName (Text)
+- ApprovedXmlPath (Text)
+- SuccessScreenshotPath (Text)
+
+Keep outputs SubmissionStatus; add SuccessScreenshotPathOutput (Text).
+Initialize SubmissionStatus = SUBMISSION_UNCONFIRMED and SuccessScreenshotPathOutput
+empty at the beginning so no earlier run's success can leak into a new run.
+
+Derive ExpectedReturnPeriod and ExpectedSavedReturnName from the supplied TIN and
+period exactly as before. In the verification If, compare them to
+ApprovedReturnPeriod and ApprovedSavedReturnName, not literal test values.
+Require ExpectedFormNumber = 2551Qv2018, nonempty WorkOrderId/ApprovalId/ApprovedBy,
+ApprovedForSubmission = True AND SubmissionEnabled = True before Submit / Final Copy.
+For the existing If action, use this First operand (Equal to, True):
+```
+%IsNotEmpty(WorkOrderId) AND IsNotEmpty(ApprovalId) AND IsNotEmpty(ApprovedBy) AND ApprovedForSubmission = True AND SubmissionEnabled = True AND ExpectedFormNumber = '2551Qv2018' AND ExpectedReturnPeriod = ApprovedReturnPeriod AND ExpectedSavedReturnName = ApprovedSavedReturnName%
+```
+
+Require exactly one XML matching the derived name, and require its full path equals
+ApprovedXmlPath. Verify the opened return identity before submission using the
+existing exact saved-row matching. No operator should type fake approval values.
+
+After Submit / Final Copy, wait for and click the confirmation OK, then wait for
+and click the Terms of Service Ok. Wait for the exact success message before
+recording success. Set a finite timeout (120 seconds for success).
+Save the screenshot to %SuccessScreenshotPath%, replacing the old fixed filename.
+Only after screenshot save succeeds:
+- Set SuccessScreenshotPathOutput = %SuccessScreenshotPath%
+- Set SubmissionStatus = SUBMITTED_WAITING_FOR_CONFIRMATION
+Then close success/ePay/form as tested. A cleanup failure must preserve this success
+status and screenshot; it must not cause another submission.
+If submission may have started but success was not observed, keep
+SUBMISSION_UNCONFIRMED. Use FAILED_SYSTEM only for known pre-submission failures.
+Never automatically retry Submit after timeout. Return outputs to the parent.
+
+## 3. Connect the existing agent wrapper
+
+Inside its existing If Job['HasTask'] = False block, before Wait/Next loop:
+
+Run PowerShell (output Stage2Response):
 ```powershell
 & ([scriptblock]::Create([IO.File]::ReadAllText('C:\TaxAutomation\Stage2Bridge.ps1'))) -Action Poll
 ```
+Convert Stage2Response JSON to Stage2Job.
+- If RecoveryRequired = True: stop and review; preserve journals.
+- If HasTask = False: retain the existing Wait/Next loop.
+- If HasTask = True: require AutomationKey = SUBMIT_2551QV2018. An old rehearsal
+  job must go to a separate disabled-submit flow, never to the live child.
 
-Convert Stage2Response from JSON into Stage2Job.
-If Stage2Job['RecoveryRequired'] = True: Stop flow (operator review).
-If Stage2Job['HasTask'] = True:
-- Run the same script with -Action Start, output Stage2StartResponse; convert JSON to Stage2Start.
-- If Stage2Start['Started'] is not True: Stop flow.
-- Run desktop flow eBIR_Stage2_Revalidate; Wait for completion ON.
-- Map each input below to %Stage2Job['Inputs']['INPUT_NAME']% (Boolean remains Boolean):
-  TIN1, TIN2, TIN3, TIN4, RDOCode, FormSelectionText, ExpectedFormNumber, FilingYear, FilingQuarter, YearEndMonth, ApprovedForSubmission, WorkOrderId, ApprovalId, ApprovedBy.
-- Additional payload fields ApprovedPdfSha256 and SubmissionEnabled are available. Stage2Bridge verifies the local PDF against the approved hash before Start. SubmissionEnabled must remain False. ApprovedForSubmission=True only opens the documented rehearsal gate; it never authorizes enabling the Submit action.
-- The child must derive the expected filename and check it exactly as described in the handoff, rather than retaining prototype constants. Replace work-order verification constants with the supplied identifiers and derived return identity.
-- Store its output SubmissionStatus in Stage2SubmissionStatus.
-- Set Stage2Result to a custom object with AttemptId: Stage2Job['AttemptId'], SubmissionStatus: Stage2SubmissionStatus. Convert it to JSON as Stage2ResultJson.
-- Write Stage2ResultJson to %LocalAppDataPath%\TaxAutomationWorker\stage2-result.json, overwriting. Retrieve LOCALAPPDATA first if LocalAppDataPath is not yet set.
-- Run Stage2Bridge.ps1 with -Action Publish. Convert response; inspect Status.
-End the HasTask condition, then retain Wait 15 seconds and Next loop.
+Run the same script with -Action Start, convert response to Stage2Start and require
+Started=True. It checks approval mode, the approved PDF hash, XML presence and a
+fresh screenshot destination. It journals Running before the desktop flow starts.
 
-Accepted results: APPROVED_READY_TO_SUBMIT, BLOCKED_NOT_APPROVED, WORK_ORDER_VERIFICATION_FAILED, SAVED_RETURN_NOT_UNIQUE, SAVED_RETURN_ROW_NOT_FOUND, FAILED_SYSTEM. SUBMITTED is rejected.
+Run desktop flow Stage2_Open_Approved_Return, waiting for completion. Map EVERY
+input above to %Stage2Job['Inputs']['INPUT_NAME']%. Map outputs SubmissionStatus
+to Stage2SubmissionStatus and SuccessScreenshotPathOutput to Stage2ScreenshotPath.
 
-## Dashboard
+Set Stage2Result to this PAD custom object:
+```
+%{'AttemptId': Stage2Job['AttemptId'], 'SubmissionStatus': Stage2SubmissionStatus, 'SuccessScreenshotPath': Stage2ScreenshotPath}%
+```
+Convert Stage2Result to JSON (Stage2ResultJson), retrieve LOCALAPPDATA if necessary,
+and overwrite %LocalAppDataPath%\TaxAutomationWorker\stage2-result.json with it.
+Run the bridge with -Action Publish and inspect the returned Status. Publish uploads
+PNG evidence and records the result. After successful live reporting it archives
+the approved XML using Archive-SubmittedReturn.ps1. The child must close the return
+before returning. Install the helper and updated WorkerBridge.ps1 as documented in
+[Submitted XML archiving](submitted-xml-archive.md). Archive failures leave the
+submission recorded and require archive-only recovery; never rerun the child.
+Failed uploads can retry Publish with the SAME
+journal/result; never rerun the child. For an uncaught child failure, stop with the
+journal intact and investigate whether transmission happened before reporting.
 
-Approver and Administrator roles may use Approve & run Stage 2 on a prepared work order. Approval is idempotent. Only the same agent that completed preparation may claim it, because the files live on that VM. The global attempt slot prevents simultaneous preparation and Stage 2. Expired attempts and interrupted desktop runs require operator recovery; never delete a journal to retry them.
+## 4. Dashboard
 
-The work-order page displays Stage 2 state. Refresh after the VM reports its result. The prepared work order remains awaiting submission approval because no live submission is performed.
+Review the PDF, check the explicit submission authorization, then Approve & submit.
+Only the same worker that prepared the return can claim it. Approval is bound to the
+snapshot and PDF hash, and a taxpayer/period with another live approval is blocked.
+The dashboard displays the Stage 2 status and a private screenshot link after upload.
+Receipt email monitoring and final-package generation are implemented; see [the receipt guide](bir-receipts.md). The legacy work-order status
+tracks preparation; Stage2Approval tracks submission and drives displayed status.
+Expired leases (30 minutes) and interrupted runs require operator review. Renew is
+available for long-running operations. Never delete journals to restart a live run.
 
-## Testing
+## Validation
 
-Use the dummy client. Expected final state is APPROVED_READY_TO_SUBMIT, with Submit / Final Copy disabled throughout. Backend and Windows bridge tests use isolated fake data; the actual VM/PAD selector mappings still require this manual setup and an end-to-end test.
+Backend tests cover approval modes, permissions/CSRF, exact identities, evidence,
+result replay and unconfirmed attempts. Windows integration exercises both bridge
+modes against an isolated local server, including PNG upload; it does not submit to
+BIR. Code tests do not replace verification of the installed PAD mapping. Recheck affected routes/selectors after any desktop-flow change.

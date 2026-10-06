@@ -1,15 +1,19 @@
 {% extends 'base.html' %}
 {% block title %}Prepare {{ profile.form_definition.form_code }} · eBIR{% endblock %}
 {% block content %}
+<div class="form-page">
 <a class="breadcrumb" href="{% url 'workorders:client-detail' taxpayer.pk %}">← {{ taxpayer.display_name }} forms</a>
-<div class="page-heading"><div><p class="eyebrow">{{ taxpayer.display_name }}</p><h1>Prepare {{ profile.form_definition.form_code }}</h1><p class="muted">Choose the period and confirm this zero filing.</p></div></div>
+<div class="page-heading"><div><p class="eyebrow">{{ taxpayer.display_name }}</p><h1>Prepare {{ profile.form_definition.form_code }}</h1><p class="muted">Choose the filing type and period.</p></div></div>
 <div class="notice">This queues preparation for the VM worker. Keep the worker running in the VM; this page does not launch Power Automate.</div>
 <section class="panel detail-section"><dl class="details"><dt>Client</dt><dd>{{ taxpayer.registered_name }}</dd><dt>TIN</dt><dd>{{ taxpayer.tin1 }}-{{ taxpayer.tin2 }}-{{ taxpayer.tin3 }}-{{ taxpayer.tin4 }}</dd><dt>RDO</dt><dd>{{ taxpayer.rdo_code }}</dd><dt>Filing</dt><dd>{{ profile.form_definition.display_name }} · Calendar year</dd></dl></section>
 <form method="post" class="panel detail-section preparation-form" novalidate>{% csrf_token %}{{ form.request_token }}
 {% if form.errors %}<div class="notice error" role="alert">Please review the filing details.{{ form.non_field_errors }}{{ form.request_token.errors }}</div>{% endif %}
-<div class="field-grid">{% include 'workorders/field.html' with field=form.filing_year %}{% include 'workorders/field.html' with field=form.filing_quarter %}</div>
-<p class="small muted">Defaults to the current calendar year and quarter in Manila. Change the period if you are preparing an earlier return; this is not a determination of which filing is due.</p>
-<div class="confirmation-box">{{ form.zero_filing_approved }}<div><label for="{{ form.zero_filing_approved.id_for_label }}">{{ form.zero_filing_approved.label }}</label>{{ form.zero_filing_approved.errors }}</div></div>
-<div class="form-footer"><a class="button secondary" href="{% url 'workorders:client-detail' taxpayer.pk %}">Cancel</a><button class="button primary" type="submit">Queue preparation →</button></div>
+<div class="field-grid">{% include 'workorders/field.html' with field=form.filing_mode %}{% include 'workorders/field.html' with field=form.filing_year %}{% if form.filing_month %}{% include 'workorders/field.html' with field=form.filing_month %}{% else %}{% include 'workorders/field.html' with field=form.filing_quarter %}{% endif %}</div>
+<p class="small muted">Defaults to the current year and {% if form.filing_month %}month{% else %}quarter{% endif %} in Manila. Change the period if you are preparing an earlier return; this is not a determination of which filing is due.</p>
+<p id="nonzero-notice" class="notice" hidden>Non-zero filing automation is not yet available. You can switch back to zero filing to continue.</p>
+<div class="confirmation-box" id="zero-confirmation">{{ form.zero_filing_approved }}<div><label for="{{ form.zero_filing_approved.id_for_label }}">{{ form.zero_filing_approved.label }}</label>{{ form.zero_filing_approved.errors }}</div></div>
+<div class="form-footer"><a class="button secondary" href="{% url 'workorders:client-detail' taxpayer.pk %}">Cancel</a><button id="queue-preparation" class="button primary" type="submit">Queue preparation →</button></div>
 </form>
+</div>
+{% load static %}<script src="{% static 'preparation-mode.js' %}" defer></script>
 {% endblock %}

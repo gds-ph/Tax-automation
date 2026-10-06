@@ -19,7 +19,17 @@ try {
     const viewport = page.getViewport({scale:Math.min(3,3000/Math.max(base.width,base.height))});
     const canvas = createCanvas(Math.ceil(viewport.width),Math.ceil(viewport.height));
     await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
-    images.push('data:image/png;base64,'+canvas.toBuffer('image/png').toString('base64'));
+    // Scanned pages can produce very large PNGs. Keep full resolution but
+    // compress photographic scans so six pages fit the reader's 35 MB limit.
+    let bytes = canvas.toBuffer('image/png');
+    let mime = 'image/png';
+    if (bytes.length > 4_000_000) {
+      mime = 'image/jpeg';
+      bytes = canvas.toBuffer(mime, 92);
+      if (bytes.length > 4_000_000) bytes = canvas.toBuffer(mime, 80);
+    }
+    if (bytes.length > 4_000_000) throw new Error('Rendered page exceeds image size limit');
+    images.push('data:'+mime+';base64,'+bytes.toString('base64'));
     page.cleanup();
   }
   process.stdout.write(JSON.stringify({images}));

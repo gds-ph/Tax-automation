@@ -1,58 +1,186 @@
 {% extends 'base.html' %}
-{% block title %}{{ order.client_name }} · {{ filing.code }} · eBIR{% endblock %}
+{% load static %}
+{% block title %}{{ order.client_name }} · {{ order.form_code }} · eBIR{% endblock %}
 {% block content %}
-{% if order.is_archived %}<div class="notice">Archived test filing. Retained for history; do not use its XML path for a new filing.</div>{% endif %}
-{% if order.client_id %}<a class="breadcrumb" href="{% url 'workorders:client-detail' order.client_id %}">Back to {{ order.client_name }} filings</a>{% else %}<a class="breadcrumb" href="{% url 'workorders:filing-orders' filing.slug %}">← {{ filing.code }} work orders</a>{% endif %}
-<div class="page-heading"><div><p class="eyebrow">{{ filing.code }} · Q{{ order.filing_quarter }} {{ order.filing_year }}</p><h1>{{ order.client_name }}</h1><p class="muted mono work-id">{{ order.work_order_id }}</p></div>{% if perms.workorders.change_workorder and order.status == 'DRAFT' or perms.workorders.change_workorder and order.status == 'READY_TO_PREPARE' %}<a class="button secondary" href="{% url 'workorders:edit' order.pk %}">Edit work order</a>{% endif %}</div>
-{% if action_error %}<div class="notice error" role="alert">{{ action_error }}</div>{% endif %}
-<section class="status-bar"><div>{% include 'workorders/status.html' with status=order.status label=order.get_status_display %}<span class="small muted">Version {{ order.version }} · Updated {{ order.updated_at|date:'d M Y, g:i A' }}</span></div>{% if perms.workorders.change_workorder %}{% if order.status == 'DRAFT' %}<form method="post" action="{% url 'workorders:ready' order.pk %}">{% csrf_token %}{{ transition_form }}<button class="button primary" type="submit">Mark ready to prepare →</button></form>{% elif order.status == 'READY_TO_PREPARE' %}<form method="post" action="{% url 'workorders:draft' order.pk %}">{% csrf_token %}{{ transition_form }}<button class="button secondary" type="submit">Return to draft</button></form>{% endif %}{% endif %}</section>
-{% if not order.zero_filing_approved %}<div class="notice">Zero filing has not been confirmed. {% if perms.workorders.change_workorder %}Edit this work order and confirm it before marking ready.{% endif %}</div>{% endif %}
-{% if order.status == 'READY_TO_PREPARE' %}<div class="notice">Queued. Waiting for the VM worker to claim this task.</div>{% endif %}
-{% if order.status == 'PROCESSING_PREPARATION' %}<div class="notice">Claimed by {{ order.agent_name }}. Lease expires {{ order.lease_expires_at|date:'d M Y, g:i A' }}. An expired lease requires operator review; tasks are not automatically rerun.</div>{% endif %}
-{% if order.status == 'AWAITING_SUBMISSION_APPROVAL' %}<div class="notice">Preparation results received. The PDF and XML result are recorded. Submission remains disabled.{% if perms.workorders.view_prepared_pdf %} <a href="{% url 'workorders:prepared-pdf' order.pk %}">Download protected review PDF</a>{% endif %}</div>{% endif %}
-{% if order.status == 'AWAITING_SUBMISSION_APPROVAL' and perms.workorders.view_prepared_pdf %}
-<section class="panel pdf-preview" aria-labelledby="pdf-preview-heading">
-  <div class="pdf-preview-toolbar">
-    <h2 id="pdf-preview-heading">Prepared PDF</h2>
-    <div class="pdf-preview-actions">
-      <a class="button secondary" href="{% url 'workorders:prepared-pdf' order.pk %}?inline=1" target="_blank" rel="noopener">Open in new tab</a>
-      <a class="button secondary" href="{% url 'workorders:prepared-pdf' order.pk %}">Download PDF</a>
-    </div>
+{% if order.client_id %}<a class="breadcrumb" href="{% url 'workorders:client-detail' order.client_id %}">← Back to {{ order.client_name }} filings</a>{% else %}<a class="breadcrumb" href="{% url 'workorders:filing-orders' filing.slug %}">← {{ order.form_code }} work orders</a>{% endif %}
+<div class="page-heading"><div><p class="eyebrow">{{ order.form_code }} · {{ order.period_label }}</p><h1>{{ order.client_name }}</h1><p class="muted mono work-id">{{ order.work_order_id }}</p></div>
+<div class="heading-actions">{% if perms.workorders.change_workorder and order.status == 'DRAFT' or perms.workorders.change_workorder and order.status == 'READY_TO_PREPARE' %}<a class="button secondary" href="{% url 'workorders:edit' order.pk %}">Edit work order</a>{% endif %}
+{% if can_cancel or can_archive %}<details class="action-menu" data-action-menu>
+  <summary class="button secondary" aria-label="More actions">Actions <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+  <div class="action-menu-list">
+    {% if can_archive %}<button type="button" data-open-dialog="archive-dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg><span>Archive filing<small>Hide from active lists</small></span></button>{% endif %}
+    {% if can_cancel %}<button type="button" class="danger" data-open-dialog="cancel-dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg><span>Cancel filing<small>Stop work on this filing</small></span></button>{% endif %}
   </div>
-  <iframe class="pdf-preview-frame" title="Prepared filing PDF" src="{% url 'workorders:prepared-pdf' order.pk %}?inline=1#view=FitH"></iframe>
-  <p class="small muted">If the preview does not appear, open the PDF in a new tab or download it.</p>
+</details>{% endif %}</div></div>
+{% if order.is_archived %}<div class="notice">{% if order.status == 'CANCELLED' %}Cancelled filing. Submission is blocked. History and documents are retained. XML cleanup status appears below.{% else %}Archived filing. History and documents are retained.{% endif %}</div>{% endif %}
+{% if can_cancel %}<dialog class="confirm-dialog" id="cancel-dialog" aria-labelledby="cancel-dialog-title">
+  {% if request.user.is_superuser %}<p><a href="{% url 'workorders:cancellation-worker-update' %}">Download VM cancellation update</a> (install once with PAD stopped).</p>{% endif %}<form method="post" action="{% url 'workorders:cancel' order.pk %}">{% csrf_token %}{{ transition_form }}
+    <h2 id="cancel-dialog-title">Cancel this filing?</h2>
+    <p>The filing is removed from active work and submission is blocked. History and PDFs are retained. The updated VM worker moves its XML into the Cancelled archive when idle.</p>
+    <label class="confirm-check"><input type="checkbox" name="confirmed" value="yes" required> I understand this filing will be cancelled</label>
+    <div class="dialog-actions"><button type="button" class="button secondary" data-close-dialog>Keep filing</button><button type="submit" class="button danger">Cancel filing</button></div>
+  </form>
+</dialog>{% endif %}
+{% if can_archive %}<dialog class="confirm-dialog" id="archive-dialog" aria-labelledby="archive-dialog-title">
+  <form method="post" action="{% url 'workorders:archive' order.pk %}">{% csrf_token %}{{ transition_form }}
+    <h2 id="archive-dialog-title">Archive this filing?</h2>
+    <p>The filing is removed from active lists. History and documents stay available, and saved files on the worker computer are not deleted.</p>
+    <label class="confirm-check"><input type="checkbox" name="confirmed" value="yes" required> Archive this filing</label>
+    <div class="dialog-actions"><button type="button" class="button secondary" data-close-dialog>Back</button><button type="submit" class="button primary">Archive filing</button></div>
+  </form>
+</dialog>{% endif %}
+{% if action_error %}<div class="notice error" role="alert">{{ action_error }}</div>{% endif %}
+
+
+
+<section class="status-bar">
+  <div>{% include 'workorders/status.html' with tone=order.operational_tone label=order.operational_status %}<span class="small muted">Version {{ order.version }} · Updated {{ order.updated_at|date:'d M Y, g:i A' }}</span></div>
 </section>
-{% endif %}
-{% if order.status == 'AWAITING_SUBMISSION_APPROVAL' %}
-<section id="submission-review" class="panel approval-panel" aria-labelledby="approval-heading">
-<h2 id="approval-heading">Stage 2 approval</h2>
-<p>Reopen the exact saved return and revalidate it in the VM. Actual BIR submission is disabled.</p>
-{% if order.stage2_approval %}
-<p><strong>{{ order.stage2_approval.state }}</strong></p>
-<p class="small muted">Approved by {{ order.stage2_approval.approved_by }} on {{ order.stage2_approval.approved_at }}. This filing has not been submitted.</p>
-{% elif perms.automation_api.approve_stage2 and perms.workorders.view_prepared_pdf %}
-<form method="post" action="{% url 'workorders:approve-stage2' order.pk %}">{% csrf_token %}
-<input type="hidden" name="version" value="{{ order.version }}"><input type="hidden" name="pdf_sha256" value="{{ order.prepared_pdf_sha256 }}">
-<div class="approval-preview-fields"><label for="approval-comment">Review notes (optional)</label><textarea id="approval-comment" name="comment" maxlength="2000" rows="2"></textarea></div>
-<button type="submit" class="button primary">Approve &amp; run Stage 2</button>
-</form>
-{% else %}<p>An authorized approver must approve this return before Stage 2 can run.</p>{% endif %}
-</section>
-{% endif %}
-<div class="detail-grid">
-  <section class="panel detail-section"><h2>Client details</h2><dl class="details"><dt>Registered name</dt><dd>{{ order.registered_name }}</dd><dt>Client reference</dt><dd>{{ order.legacy_client_reference|default:'—' }}</dd><dt>TIN</dt><dd class="mono">{{ order.tin1 }}-{{ order.tin2 }}-{{ order.tin3 }}-{{ order.tin4 }}</dd><dt>RDO code</dt><dd>{{ order.rdo_code }}</dd><dt>Address</dt><dd>{{ order.registered_address|linebreaksbr }}</dd><dt>ZIP code</dt><dd>{{ order.zip_code }}</dd><dt>Telephone</dt><dd>{{ order.telephone_number }}</dd><dt>Email</dt><dd>{{ order.email_address }}</dd><dt>Line of business</dt><dd>{{ order.line_of_business }}</dd></dl></section>
-  <section class="panel detail-section"><h2>Filing details</h2><dl class="details"><dt>Form</dt><dd>{{ filing.code }} · January 2018</dd><dt>Filing period</dt><dd>Q{{ order.filing_quarter }} {{ order.filing_year }}</dd><dt>Year basis</dt><dd>Calendar year · December</dd><dt>ATC</dt><dd>{{ order.atc_code }}</dd><dt>Zero filing confirmed</dt><dd>{{ order.zero_filing_approved|yesno:'Yes,No' }}</dd><dt>Return period</dt><dd class="mono">{{ order.expected_return_period }}</dd><dt>Created by</dt><dd>{{ order.created_by.get_username }}</dd><dt>Created</dt><dd>{{ order.created_at|date:'d M Y, g:i A' }}</dd></dl><div class="file-reference"><span class="small muted">Expected saved-return filename</span><p class="mono">{{ order.expected_xml_filename }}</p></div></section>
+
+<ol class="stage-rail" aria-label="Filing progress">
+{% for stage in stages %}<li class="stage {{ stage.state }}"><span class="stage-marker" aria-hidden="true"></span><span class="stage-label">{{ stage.label }}</span><span class="sr-only">{% if stage.state == 'complete' %}(done){% elif stage.state == 'current' %}(in progress){% elif stage.state == 'failed' %}(needs review){% else %}(not started){% endif %}</span></li>{% endfor %}
+</ol>
+
+<nav class="tabs pills" aria-label="Work order sections">
+{% for value, label, url in tabs %}<a class="tab" href="{{ url }}"{% if value == tab %} aria-current="page"{% endif %}>{{ label }}{% if value == 'documents' and document_count %}<span class="tab-count">{{ document_count }}</span>{% endif %}</a>{% endfor %}
+</nav>
+
+{% if tab == 'documents' %}
+{% if not can_view_pdf %}<div class="notice">Your account cannot open the protected filing documents.</div>{% endif %}
+<div class="document-list">
+  {% if order.prepared_pdf and can_view_pdf %}
+  <section class="panel document-row"><div><h2>Prepared return</h2><p class="small muted mono">{{ order.review_pdf_filename }}</p><p class="small muted">The reviewed copy that approval is bound to. SHA-256 verified on every download.</p>
+  {% with archive=order.prepared_return_archive %}
+  {% if archive.state == 'SAVED' %}<p class="small muted">Saved to client folder: <span class="mono">{{ archive.path }}</span></p>
+  {% elif archive.state == 'RETRY' %}<p class="small muted">Client-folder copy pending. {{ archive.error }} Automatic retry is scheduled.</p>
+  {% elif archive.state == 'BLOCKED' %}<p class="small muted">Client-folder copy needs operator review. {{ archive.error }}</p>
+  {% elif archive %}<p class="small muted">Client-folder copy queued.</p>{% endif %}
+  {% endwith %}</div>
+  <div class="document-actions"><a class="button secondary" href="{% url 'workorders:prepared-pdf' order.pk %}?inline=1" target="_blank" rel="noopener">Open</a><a class="button secondary" href="{% url 'workorders:prepared-pdf' order.pk %}">Download</a></div></section>
+  {% endif %}
+  {% if approval.success_screenshot and can_view_pdf %}
+  <section class="panel document-row"><div><h2>Submission screenshot</h2><p class="small muted">Evidence captured in the VM when eBIRForms reported success.</p></div>
+  <div class="document-actions"><a class="button secondary" href="{% url 'workorders:submission-screenshot' order.pk %}" target="_blank" rel="noopener">View</a></div></section>
+  {% endif %}
+  {% if receipt.received_at %}
+  <section class="panel document-row"><div><h2>BIR receipt email</h2><p class="small muted mono">{{ receipt.filename }}</p><p class="small muted">Received {{ receipt.received_at|date:'d M Y, g:i A' }} · Gmail message {{ receipt.message_id }}</p></div></section>
+  {% endif %}
+  {% if receipt.finalized_at and can_view_pdf %}
+  <section class="panel document-row"><div><h2>Final filing package</h2><p class="small muted">Return, receipt email and submission screenshot in one PDF. Generated {{ receipt.finalized_at|date:'d M Y, g:i A' }}.</p><p class="small muted mono">SHA-256 {{ receipt.final_package_sha256|slice:':16' }}…</p></div>
+  <div class="document-actions"><a class="button primary" href="{% url 'workorders:final-package' order.pk %}">Download package</a></div></section>
+  {% endif %}
+  {% if not document_count %}<section class="panel empty-state"><span class="empty-icon" aria-hidden="true">▤</span><h2>No documents yet</h2><p>The prepared return appears here once the VM worker reports a successful preparation.</p></section>{% endif %}
 </div>
-<section class="panel history-panel"><div class="section-heading"><h2>Activity history</h2><span class="small muted">Most recent first</span></div>{% if can_view_audit %}<ol class="timeline">{% for event in history %}<li><span class="timeline-dot" aria-hidden="true"></span><div><strong>{{ event.get_kind_display }}</strong><p>{% if event.performed_by_agent %}Worker: {{ event.performed_by_agent.name }}{% else %}{{ event.actor.get_username }}{% endif %}{% if event.old_status and event.old_status != event.new_status %} · {{ event.old_status_label }} → {{ event.new_status_label }}{% endif %}</p>{% if event.changed_fields %}<p class="small muted">Fields updated: {{ event.changed_labels|join:', ' }}</p>{% endif %}</div><time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:'d M Y, g:i A' }}</time></li>{% empty %}<li>No activity recorded yet.</li>{% endfor %}</ol>{% if history.has_other_pages %}<nav class="pagination" aria-label="Activity pages">{% if history.has_previous %}<a href="?history_page={{ history.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ history.number }} of {{ history.paginator.num_pages }}</span>{% if history.has_next %}<a href="?history_page={{ history.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}{% else %}<p class="muted">Your account does not have access to activity history.</p>{% endif %}</section>
-{% if order.status == 'READY_TO_PREPARE' or order.status == 'PROCESSING_PREPARATION' or order.stage2_approval.state == 'QUEUED' or order.stage2_approval.state == 'RUNNING' %}
-<p class="small muted">This page checks progress every 10 seconds while open. Keep the VM worker running.</p>
-<script>
-// Navigate with GET, including when this template follows a failed form POST.
-window.setInterval(function () {
-    if (!document.hidden) {
-        window.location.replace("{% url 'workorders:detail' order.pk %}");
-    }
-}, 10000);
-</script>
+
+{% elif tab == 'activity' %}
+<section class="panel history-panel"><div class="section-heading"><h2>Activity history</h2><span class="small muted">Most recent first</span></div>{% if can_view_audit %}<ol class="timeline">{% for event in history %}<li><span class="timeline-dot" aria-hidden="true"></span><div><strong>{{ event.get_kind_display }}</strong><p>{% if event.description %}{{ event.description }}{% elif event.performed_by_agent %}Worker: {{ event.performed_by_agent.name }}{% else %}{{ event.actor.get_username }}{% endif %}{% if event.old_status and event.old_status != event.new_status %} · {{ event.old_status_label }} → {{ event.new_status_label }}{% endif %}</p>{% if event.changed_fields %}<p class="small muted">Fields updated: {{ event.changed_labels|join:', ' }}</p>{% endif %}</div><time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:'d M Y, g:i A' }}</time></li>{% empty %}<li>No activity recorded yet.</li>{% endfor %}</ol>{% if history.has_other_pages %}<nav class="pagination" aria-label="Activity pages">{% if history.has_previous %}<a href="?tab=activity&amp;history_page={{ history.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ history.number }} of {{ history.paginator.num_pages }}</span>{% if history.has_next %}<a href="?tab=activity&amp;history_page={{ history.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}{% else %}<p class="muted">Your account does not have access to activity history.</p>{% endif %}</section>
+
+{% else %}
+<section id="submission-review" class="panel next-action" aria-labelledby="next-action-heading">
+<h2 id="next-action-heading">Next action</h2>
+{% if order.status == 'CANCELLED' %}
+  <p>This filing was cancelled. No further preparation or submission is queued. Its documents remain available.</p>
+  {% if cancellation_cleanup.state == 'DONE' %}<p><strong>XML moved to Cancelled archive.</strong></p><p class="mono">{{ cancellation_cleanup.archive_path }}</p>
+  {% elif cancellation_cleanup.state == 'FAILED' %}<p class="notice error">XML cleanup needs review: {{ cancellation_cleanup.error }}</p>
+  {% elif cancellation_cleanup %}<p><strong>XML cleanup pending{% if cancellation_cleanup.state == 'RUNNING' %} / in progress{% endif %}.</strong> Close eBIRForms form windows and run the updated parent worker on the original VM. New desktop work waits for cleanup.</p>
+  {% else %}<p>No XML cleanup was queued for this older cancellation. Its VM files remain in place.</p>{% endif %}
+  {% if request.user.is_superuser %}<p><a href="{% url 'workorders:cancellation-worker-update' %}">Download VM cancellation update</a>. Stop PAD, extract the ZIP, run Install-CancellationCleanup.cmd, then restart the parent worker.</p>{% endif %}
+{% elif order.status == 'DRAFT' %}
+  {% if not order.zero_filing_approved %}<p>Zero filing has not been confirmed yet.{% if perms.workorders.change_workorder %} Edit this work order and confirm it before marking it ready.{% endif %}</p>
+  {% else %}<p>This draft is ready to be queued for the VM worker.</p>{% endif %}
+  {% if perms.workorders.change_workorder %}<form method="post" action="{% url 'workorders:ready' order.pk %}">{% csrf_token %}{{ transition_form }}<button class="button primary" type="submit">Mark ready to prepare →</button></form>{% endif %}
+{% elif order.status == 'READY_TO_PREPARE' %}
+  <p>Queued. Waiting for the VM worker to claim this task.</p>
+  {% if perms.workorders.change_workorder %}<form method="post" action="{% url 'workorders:draft' order.pk %}">{% csrf_token %}{{ transition_form }}<button class="button secondary" type="submit">Return to draft</button></form>{% endif %}
+{% elif order.status == 'PROCESSING_PREPARATION' %}
+  <p>Claimed by {{ order.agent_name }}. Lease expires {{ order.lease_expires_at|date:'d M Y, g:i A' }}.</p>
+  <p class="small muted">An expired lease requires operator review; tasks are never rerun automatically.</p>
+  {% if perms.workorders.change_workorder and perms.automation_api.change_agent and running_attempt %}
+  <p class="small muted">After release, restart the parent worker. With the dashboard recovery update installed, it backs up and clears this run's pending record automatically.</p>
+  <details><summary>One-time worker update</summary><p><a href="{% url 'workorders:worker-recovery-update' %}">Download dashboard recovery update</a>. On the VM, stop both PAD flows, extract the ZIP, then double-click <strong>Install-DashboardRecovery.cmd</strong>.</p></details>
+  <form method="post" action="{% url 'workorders:release-interrupted' order.pk %}">{% csrf_token %}<input type="hidden" name="attempt_id" value="{{ running_attempt.pk }}"><input type="hidden" name="version" value="{{ order.version }}"><div class="confirmation-box"><input type="checkbox" id="confirm-release" name="confirmed_stopped" required><div><label for="confirm-release">PAD and the desktop filing flow are stopped. Release this interrupted run.</label></div></div><button class="button secondary" type="submit">Release interrupted run</button></form>
+  {% endif %}
+{% elif order.status == 'AWAITING_SUBMISSION_APPROVAL' %}
+  {% if approval %}
+    <p><strong>{{ order.operational_status }}</strong></p>
+    {% if approval.state == 'RUNNING' and approval.submission_enabled and not approval.success_screenshot %}
+      <div class="state-callout warn" role="status"><span class="state-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><p class="state-title">No result from the worker yet</p><p>If the flow stopped before Submit was clicked, an operator can recover this attempt and retry.</p></div></div>
+      {% if perms.workorders.change_workorder and perms.automation_api.change_agent and perms.automation_api.approve_stage2 %}
+      <details class="recovery-panel">
+        <summary><span><strong>Retry interrupted submission</strong><small>Only when Submit was never clicked</small></span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+        <div class="recovery-body">
+        <p class="recovery-warning">If submission may have occurred, check the receipt and worker evidence first. Do not retry.</p>
+        <form method="post" action="{% url 'workorders:retry-submission' order.pk %}">{% csrf_token %}
+        <input type="hidden" name="attempt_id" value="{{ approval.attempt_id }}">
+        <ol class="recovery-steps">
+          <li><span class="step-title">Stop both PAD flows on the VM</span></li>
+          <li><label class="step-title" for="retry-evidence">Describe where the flow stopped</label>
+            <input class="input" id="retry-evidence" type="text" name="evidence_note" required maxlength="2000" placeholder="e.g. Stopped at the eBIRForms login screen">
+            <p class="help-text">Recorded on this submission approval as recovery evidence.</p></li>
+          <li><span class="step-title">Confirm</span>
+            <label class="confirm-check"><input type="checkbox" name="confirmed_stopped_before_submit" required> Both PAD flows are stopped. Submit was never clicked for this attempt.</label></li>
+        </ol>
+        <div class="recovery-next"><strong>What happens next</strong><p>The approved return is queued again and a recovery ZIP downloads. On the VM, extract it, run <code>Recover.cmd</code>, then restart one parent worker. Keep the ZIP until recovery succeeds.</p></div>
+        <div class="recovery-actions"><button class="button primary" type="submit">Queue retry and download recovery</button></div>
+        </form>
+        </div>
+      </details>
+      {% else %}<p>An operator with submission approval and worker management permissions can recover this run.</p>{% endif %}
+    {% endif %}
+    {% if approval.state == 'MANUALLY_SUBMITTED_UNVERIFIED' %}
+      <p class="small muted">Manual submission recorded by {{ approval.approved_by }} on {{ approval.approved_at|date:'d M Y, g:i A' }}. No Stage 2 execution was queued.</p>
+      <p>{{ approval.comment }}</p>
+    {% else %}
+      {% if receipt.received_at %}
+        <p>The BIR receipt email for {{ receipt.filename }} arrived on {{ receipt.received_at|date:'d M Y, g:i A' }}.{% if receipt.finalized_at %} The final package is ready in <a href="?tab=documents">Documents</a>.{% endif %}</p>
+        {% if receipt.finalized_at and can_view_pdf %}<p><a class="button primary" href="{% url 'workorders:final-package' order.pk %}?inline=1" target="_blank" rel="noopener">View full package</a></p>{% endif %}
+        <p class="small muted">A receipt email confirms eBIRForms accepted the return. It is not a final BIR validation.</p>
+      {% elif approval.state == 'SUBMITTED_WAITING_FOR_CONFIRMATION' %}
+        {% if receipt.trrc_escalation_sent_at %}<p><strong>TRRC escalation sent</strong> on {{ receipt.trrc_escalation_sent_at|date:'d M Y, g:i A' }} to the configured simulation recipient. The email checker continues looking for the matching receipt.</p>{% else %}<p>eBIRForms reported success. The email checker looks for the matching XML filename at the interval configured in Settings.</p>{% endif %}
+        {% if receipt.last_checked_at %}<p class="small muted">Last checked {{ receipt.last_checked_at|date:'d M Y, g:i A' }} · next check {{ receipt.next_check_at|date:'d M Y, g:i A' }}.</p>{% else %}<p class="small muted">Waiting for the first email check.</p>{% endif %}
+        {% if receipt.last_error %}<p class="notice error">{{ receipt.last_error }}</p>{% endif %}
+      {% endif %}
+      <p class="small muted approval-meta">Approved by {{ approval.approved_by }} on {{ approval.approved_at|date:'d M Y, g:i A' }}. {% if approval.submission_enabled %}Submission was authorized for this return.{% else %}This earlier approval authorized revalidation only.{% endif %}</p>
+    {% endif %}
+  {% elif order.expected_form_number == '2551Qv2018' and perms.automation_api.approve_stage2 and perms.workorders.view_prepared_pdf %}
+    <p>Review the prepared return, then approve this exact copy for VM revalidation. This does not authorize submission to BIR.</p>
+    <p><a class="button secondary" href="{% url 'workorders:prepared-pdf' order.pk %}?inline=1" target="_blank" rel="noopener">Review the prepared return →</a></p>
+    <form method="post" action="{% url 'workorders:approve-stage2' order.pk %}">{% csrf_token %}
+      <input type="hidden" name="version" value="{{ order.version }}"><input type="hidden" name="pdf_sha256" value="{{ order.prepared_pdf_sha256 }}">
+      <div class="confirmation-box"><input type="checkbox" id="authorize-revalidation" required><div><label for="authorize-revalidation">I reviewed this PDF and authorize VM revalidation. No BIR submission will be made.</label></div></div>
+      <div class="button-row"><button type="submit" class="button primary">Approve for revalidation</button></div>
+    </form>
+  {% elif not order.live_submission_available %}
+    <p>Live submission for this form is not enabled yet. The prepared files remain available in <a href="?tab=documents">Documents</a>.</p>
+  {% elif perms.automation_api.approve_stage2 and perms.workorders.view_prepared_pdf %}
+    <p>Review the prepared return, then approve this exact copy for the VM to reopen, validate and submit to BIR.</p>
+    <p><a class="button secondary" href="{% url 'workorders:prepared-pdf' order.pk %}?inline=1" target="_blank" rel="noopener">Review the prepared return →</a></p>
+    <form method="post" action="{% url 'workorders:approve-stage2' order.pk %}">{% csrf_token %}
+      <input type="hidden" name="version" value="{{ order.version }}"><input type="hidden" name="pdf_sha256" value="{{ order.prepared_pdf_sha256 }}">
+      <div class="confirmation-box"><input type="checkbox" id="authorize-submission" name="authorize_submission" required><div><label for="authorize-submission">I reviewed this PDF and authorize submitting this return to BIR. It has not already been submitted.</label></div></div>
+      <div class="button-row"><button type="submit" class="button primary">Approve &amp; submit</button></div>
+    </form>
+  {% else %}
+    <p>An authorized approver must approve this return before Stage 2 can run.</p>
+  {% endif %}
+{% else %}
+  {% if can_retry_preparation %}
+  <p>Preparation failed. Retry this filing once the cause has been resolved. The previous attempt stays in Activity history.</p>
+  <form method="post" action="{% url 'workorders:retry' order.pk %}">{% csrf_token %}{{ transition_form }}<button class="button primary" type="submit">Retry preparation</button></form>
+  <p class="small muted">This queues preparation from the beginning. Keep the VM worker running. If it stopped with a pending run, an operator must complete worker recovery first.</p>
+  {% else %}
+  <p>{{ order.operational_status }}. This filing needs operator review; nothing is retried automatically.</p>
+  {% endif %}
+  {% if order.error_message %}<p class="small muted">{{ order.error_message }}</p>{% endif %}
 {% endif %}
+</section>
+
+<div class="detail-grid">
+  <section class="panel detail-section"><h2>Filing details</h2><dl class="details"><dt>Form</dt><dd>{{ order.form_code }} · January 2018</dd><dt>Filing period</dt><dd>{{ order.period_label }}</dd><dt>Year basis</dt><dd>Calendar year · December</dd><dt>ATC</dt><dd>{{ order.atc_code|default:'—' }}</dd><dt>Zero filing confirmed</dt><dd>{{ order.zero_filing_approved|yesno:'Yes,No' }}</dd><dt>Return period</dt><dd class="mono">{{ order.expected_return_period }}</dd><dt>Created by</dt><dd>{{ order.created_by.get_username }}</dd><dt>Created</dt><dd>{{ order.created_at|date:'d M Y, g:i A' }}</dd></dl><div class="file-reference"><span class="small muted">Expected saved-return filename</span><p class="mono">{{ order.expected_xml_filename }}</p></div></section>
+  <section class="panel detail-section"><h2>Client details as prepared</h2><dl class="details"><dt>Registered name</dt><dd>{{ order.registered_name }}</dd><dt>Client reference</dt><dd>{{ order.legacy_client_reference|default:'—' }}</dd><dt>TIN</dt><dd class="mono">{{ order.tin1 }}-{{ order.tin2 }}-{{ order.tin3 }}-{{ order.tin4 }}</dd><dt>RDO code</dt><dd>{{ order.rdo_code }}</dd><dt>Address</dt><dd>{{ order.registered_address|linebreaksbr }}</dd><dt>ZIP code</dt><dd>{{ order.zip_code }}</dd><dt>Telephone</dt><dd>{{ order.telephone_number|default:'—' }}</dd><dt>Email</dt><dd>{{ order.email_address|default:'—' }}</dd><dt>Line of business</dt><dd>{{ order.line_of_business }}</dd></dl><p class="small muted">Recorded in this filing's snapshot. Editing the client later never changes these values.</p></section>
+</div>
+{% endif %}
+
+<p class="small muted" id="progress-update" data-progress-url="{% url 'workorders:detail' order.pk %}?tab={{ tab }}">Progress updates in the background every 10 seconds. Keep the VM worker running.</p>
+<script src="{% static 'filing-progress.js' %}" defer></script>
 {% endblock %}

@@ -6,3 +6,7 @@ sqlparse==0.6.0
 tzdata==2026.4
 
 pypdf==6.18.1
+
+cryptography==46.0.3
+
+Pillow==11.3.0

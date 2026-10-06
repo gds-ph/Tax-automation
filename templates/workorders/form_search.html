@@ -1,0 +1,7 @@
+{% load static %}
+<div data-form-search hidden>
+  <label for="form-search">Search forms</label>
+  <input class="input" id="form-search" type="search" placeholder="Form number or name, e.g. 2550Q or income tax" autocomplete="off">
+  <p class="small muted" data-form-search-status role="status" aria-live="polite"></p>
+</div>
+<script src="{% static 'form-search.js' %}" defer></script>

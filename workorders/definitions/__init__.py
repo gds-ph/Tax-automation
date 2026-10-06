@@ -3,8 +3,14 @@
 from django.core.exceptions import ValidationError
 
 from .form_2551qv2018 import DEFINITION as FORM_2551Q
+from .form_1601cv2018 import DEFINITION as FORM_1601C
 
-DEFINITIONS = {FORM_2551Q.key: FORM_2551Q}
+from .form_1601eq import DEFINITION as FORM_1601EQ
+from .form_0619f import DEFINITION as FORM_0619F
+
+from .form_1600vt import DEFINITION as FORM_1600VT
+
+DEFINITIONS = {item.key: item for item in (FORM_2551Q, FORM_1601C, FORM_1601EQ, FORM_0619F, FORM_1600VT)}
 
 
 def get_definition(key):

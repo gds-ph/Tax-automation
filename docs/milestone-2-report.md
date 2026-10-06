@@ -1,5 +1,7 @@
 # Milestone 2 implementation report
 
+> Historical record. Reviewed 2 October 2026: implementation status, permissions, addresses and test counts below refer to the original delivery, not the current deployment. Start with the [current documentation index](README.md). For recovery use [the current guide](worker-preparation-recovery.md); do not replay old reset instructions against a new attempt.
+
 Historical delivery report. The [approved client architecture revision](client-architecture-report.md) supersedes the source-model and work-order entry details below.
 
 Milestone 2 is complete. Milestone 3 has not started. No new packages were
