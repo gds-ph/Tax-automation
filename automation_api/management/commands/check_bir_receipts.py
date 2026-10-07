@@ -7,6 +7,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         from automation_api.prepared_archive import process_pending
+        from automation_api.screenshot_archive import process_pending as copy_screenshots
         from audit.operational import record
         from audit.models import SystemLog
         from django.utils import timezone
@@ -16,6 +17,10 @@ class Command(BaseCommand):
             process_pending()
         except Exception:
             record('background_failed', route='archive_prepared_returns', level='ERROR')
+        try:
+            copy_screenshots()
+        except Exception:
+            record('background_failed', route='archive_submission_screenshots', level='ERROR')
         try:
             checked, received, errors = poll_receipts()
         except Exception:

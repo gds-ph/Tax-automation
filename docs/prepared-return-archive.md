@@ -27,3 +27,15 @@ python manage.py archive_prepared_returns --include-existing
 ```
 
 Without that option, the command only processes pending copies. Each run handles up to 20 due jobs; the background process continues the remainder. An existing filing can also be queued using `automation_api.prepared_archive.enqueue(order)` after checking its client mapping and preparation result. Keep the receipts background service running even when there are no submitted filings.
+
+## Submission screenshots (7 October 2026)
+
+After successful submission is recorded, the server also copies the verified PNG
+screenshot to the same client filing folder. It uses a distinct
+`<form-and-period>_SUBMISSION_SCREENSHOT_<work-order UUID>.png` filename.
+This does not wait for the BIR receipt. Existing successful submissions with saved
+screenshots are picked up automatically, excluding archived filings.
+Documents shows the screenshot copy status and saved path. The same hash checks,
+existing-file checks, five-minute temporary-failure retries, and batch limit apply.
+The prepared PDF and original screenshot remain available in the dashboard; the
+final package still includes the screenshot when the receipt arrives.

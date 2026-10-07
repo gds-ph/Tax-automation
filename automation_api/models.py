@@ -26,6 +26,19 @@ class PreparedReturnArchive(models.Model):
     error = models.CharField(max_length=500, blank=True)
 
 
+class SubmissionScreenshotArchive(models.Model):
+    """Durable, independently retried copy of the verified submission screenshot."""
+    work_order = models.OneToOneField('workorders.WorkOrder', on_delete=models.PROTECT,
+                                     related_name='submission_screenshot_archive')
+    sha256 = models.CharField(max_length=64)
+    state = models.CharField(max_length=12, default='PENDING', choices=[
+        (value, value) for value in ('PENDING', 'RETRY', 'SAVED', 'BLOCKED')])
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    saved_at = models.DateTimeField(null=True, blank=True)
+    path = models.CharField(max_length=1000, blank=True)
+    error = models.CharField(max_length=500, blank=True)
+
+
 class AgentQuerySet(models.QuerySet):
     def update(self, **kwargs):
         raise ValidationError("Use automation_api.services for audited agent changes.")

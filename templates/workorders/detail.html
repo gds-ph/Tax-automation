@@ -59,7 +59,13 @@
   <div class="document-actions"><a class="button secondary" href="{% url 'workorders:prepared-pdf' order.pk %}?inline=1" target="_blank" rel="noopener">Open</a><a class="button secondary" href="{% url 'workorders:prepared-pdf' order.pk %}">Download</a></div></section>
   {% endif %}
   {% if approval.success_screenshot and can_view_pdf %}
-  <section class="panel document-row"><div><h2>Submission screenshot</h2><p class="small muted">Evidence captured in the VM when eBIRForms reported success.</p></div>
+  <section class="panel document-row"><div><h2>Submission screenshot</h2><p class="small muted">Evidence captured in the VM when eBIRForms reported success.</p>
+  {% with archive=order.submission_screenshot_archive %}
+  {% if archive.state == 'SAVED' %}<p class="small muted">Saved to client folder: <span class="mono">{{ archive.path }}</span></p>
+  {% elif archive.state == 'RETRY' %}<p class="small muted">Client-folder copy pending. {{ archive.error }} Automatic retry is scheduled.</p>
+  {% elif archive.state == 'BLOCKED' %}<p class="small muted">Client-folder copy needs operator review. {{ archive.error }}</p>
+  {% else %}<p class="small muted">Client-folder copy queued.</p>{% endif %}
+  {% endwith %}</div>
   <div class="document-actions"><a class="button secondary" href="{% url 'workorders:submission-screenshot' order.pk %}" target="_blank" rel="noopener">View</a></div></section>
   {% endif %}
   {% if receipt.received_at %}

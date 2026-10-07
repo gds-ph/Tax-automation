@@ -68,9 +68,15 @@ def create_folder(parent, name):
 
 
 def upload_pdf(folder, filename, data):
+    return upload_file(folder, filename, data, content_type='application/pdf')
+
+
+def upload_file(folder, filename, data, *, content_type):
+    if content_type not in {'application/pdf', 'image/png'}:
+        raise DirectoryUnavailable('Unsupported document type.')
     boundary = '----TaxAutomation' + uuid.uuid4().hex
     disposition = f'Content-Disposition: form-data; name="files"; filename="{filename}"\r\n'
-    body = (f'--{boundary}\r\n{disposition}Content-Type: application/pdf\r\n\r\n'.encode('utf-8')
+    body = (f'--{boundary}\r\n{disposition}Content-Type: {content_type}\r\n\r\n'.encode('utf-8')
             + data + f'\r\n--{boundary}--\r\n'.encode('ascii'))
     url = settings.CLIENT_FILES_URL + '/api/upload?' + urlencode({'path': folder})
     return _write(Request(url, data=body, method='POST',
