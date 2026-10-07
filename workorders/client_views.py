@@ -194,18 +194,32 @@ def client_detail(request, pk):
 @dashboard_permission('workorders.view_client', 'workorders.change_client')
 @require_http_methods(['GET', 'POST'])
 def client_edit(request, pk):
-    from .catalog_services import update_record
-    from .forms import ClientForm
+    from .catalog_services import update_record, create_record
+    from .forms import ClientForm, ClientFilingCardsForm
+    from django.db import transaction
+    from django.core.exceptions import PermissionDenied
     client = get_object_or_404(Client, pk=pk)
     form = ClientForm(request.POST if request.method == 'POST' else None, instance=client)
+    can_add_cards = request.user.has_perm('workorders.add_clientfilingprofile')
+    cards = ClientFilingCardsForm(request.POST if request.method == 'POST' else None, client=client, prefix='cards')
+    if request.method == 'POST' and request.POST.getlist('cards-filings') and not can_add_cards:
+        raise PermissionDenied('Adding filing cards requires filing-profile creation permission.')
     status = 200
     # A queued order is matched against the snapshot it was reviewed with, so
     # changing the client here stops the worker claiming it until it is refreshed.
     queued = client.work_orders.filter(is_archived=False, status__in=('READY_TO_PREPARE', 'DRAFT')).count()
-    if request.method == 'POST' and form.is_valid():
+    if request.method == 'POST' and form.is_valid() and cards.is_valid():
         try:
-            update_record(model=Client, pk=client.pk, actor=request.user,
-                          expected_version=form.cleaned_data['expected_version'], changes=form.changes())
+            with transaction.atomic():
+                saved = update_record(model=Client, pk=client.pk, actor=request.user,
+                                      expected_version=form.cleaned_data['expected_version'], changes=form.changes())
+                selected = set(cards.cleaned_data['filings'])
+                for definition in cards.available:
+                    if str(definition.pk) in selected:
+                        create_record(model=ClientFilingProfile, actor=request.user, data={
+                            'client': saved, 'form_definition': definition,
+                            'calendar_or_fiscal': cards.cleaned_data['calendar_or_fiscal'],
+                            'year_end_month': cards.cleaned_data['year_end_month']})
         except ValidationError as error:
             _add_errors(form, error)
             status = 409
@@ -213,10 +227,10 @@ def client_edit(request, pk):
             form.add_error(None, 'Another update is in progress. Reload this client and try again.')
             status = 409
         else:
-            messages.success(request, 'Client details saved.')
+            messages.success(request, 'Client details and selected filing cards saved.')
             return redirect(f"{reverse('workorders:client-detail', args=[client.pk])}?tab=details")
     return render(request, 'workorders/client_form.html',
-                  {'taxpayer': client, 'form': form, 'queued': queued, 'section': 'clients'}, status=status)
+                  {'taxpayer': client, 'form': form, 'cards': cards, 'can_add_cards': can_add_cards, 'queued': queued, 'section': 'clients'}, status=status)
 
 
 @dashboard_permission('workorders.view_client', 'workorders.view_clientfilingprofile', 'workorders.view_formdefinition',

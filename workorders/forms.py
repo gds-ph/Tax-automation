@@ -5,6 +5,41 @@ from .services import EDITABLE_FIELDS
 from automation_api.worker_policy import ENABLED_STATUSES
 
 
+class ClientFilingCardsForm(forms.Form):
+    filings = forms.MultipleChoiceField(required=False, widget=forms.CheckboxSelectMultiple)
+    calendar_or_fiscal = forms.ChoiceField(required=False, choices=ClientFilingProfile.Basis.choices,
+                                          label='Year basis for new cards')
+    year_end_month = forms.ChoiceField(required=False, choices=[(f'{m:02}', f'{m:02}') for m in range(1, 13)],
+                                      label='Year-end month for new cards')
+
+    def __init__(self, *args, client, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import FormDefinition
+        self.existing = list(client.filing_profiles.select_related('form_definition').order_by('form_definition__form_code'))
+        self.available = list(FormDefinition.objects.filter(is_active=True).exclude(
+            pk__in=[p.form_definition_id for p in self.existing]).order_by('form_code', 'form_version'))
+        self.fields['filings'].choices = [(str(f.pk), f'{f.form_code} — {f.display_name}') for f in self.available]
+        self.initial.setdefault('calendar_or_fiscal', self.existing[0].calendar_or_fiscal if self.existing else 'CALENDAR')
+        self.initial.setdefault('year_end_month', self.existing[0].year_end_month if self.existing else '12')
+        for name in ('calendar_or_fiscal', 'year_end_month'):
+            self.fields[name].widget.attrs['class'] = 'input'
+
+    @property
+    def filing_options(self):
+        frequencies = {str(f.pk): f.filing_frequency for f in self.available}
+        return [(frequencies[o.data['value']], o) for o in self['filings']]
+
+    def clean(self):
+        data = super().clean()
+        if data.get('filings'):
+            for field in ('calendar_or_fiscal', 'year_end_month'):
+                if not data.get(field):
+                    self.add_error(field, 'Choose this setting for the new filing cards.')
+            if data.get('calendar_or_fiscal') == 'CALENDAR' and data.get('year_end_month') != '12':
+                self.add_error('year_end_month', 'Calendar years end in December (12).')
+        return data
+
+
 class ClientForm(forms.ModelForm):
     """Edits the reusable client record through the audited catalog service.
 

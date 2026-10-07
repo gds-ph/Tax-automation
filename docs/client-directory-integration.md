@@ -38,3 +38,13 @@ With nothing saved, the **Saved** tab says "No saved companies yet" and links to
 Company pages separate Company details, Filing cards and History. All active signed-in users can edit company details; existing filings retain their snapshots. Filing cards are grouped into Monthly, Quarterly, Annual and Special filing. Only active client profiles appear, and a card does not imply automation is available. The old generic Create work order routes now redirect to Clients.
 
 On Company details, open **Registration documents** beneath **Reviewed COR setup** to locate the source COR. This tab does not currently have a direct View 2303 / COR button. Directory card views can show that button when a source link is available. The PDF stays on the office share; a reviewed record is not an embedded PDF copy. A share outage can leave saved details visible while document access fails.
+
+## Add filing cards from Edit details (7 October 2026)
+
+The client Edit details page displays filing cards grouped into Monthly, Quarterly,
+Annual and Special filing tabs. Existing profiles are shown as Already added and
+cannot be removed from this screen. Users with filing-profile creation permission
+can select additional active form definitions and choose their year basis and
+year-end month. Save changes writes client details and new audited profiles in one
+transaction. It does not queue work orders or change existing filing snapshots.
+Existing or inactive profiles are not duplicated or silently reactivated.

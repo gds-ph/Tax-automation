@@ -123,6 +123,57 @@ class ClientNavigationTests(TestCase):
         self.assertEqual(order.registered_address,'FAKE ADDRESS')
         self.assertEqual(order.current_snapshot.data['client']['registered_address'],'FAKE ADDRESS')
 
+    def test_edit_adds_selected_cards_and_preserves_existing(self):
+        taxpayer = self.profile.client
+        url = reverse('workorders:client-edit', args=[taxpayer.pk])
+        self.assertContains(self.client.get(url), 'Already added')
+        definition = FormDefinition.objects.filter(is_active=True).exclude(
+            pk__in=taxpayer.filing_profiles.values('form_definition_id')).first()
+        before = set(taxpayer.filing_profiles.values_list('pk', flat=True))
+        response = self.client.post(url, self.edit_data(**{
+            'cards-filings': [str(definition.pk)], 'cards-calendar_or_fiscal': 'FISCAL',
+            'cards-year_end_month': '06'}))
+        self.assertEqual(response.status_code, 302)
+        profile = taxpayer.filing_profiles.get(form_definition=definition)
+        self.assertEqual(profile.calendar_or_fiscal, 'FISCAL')
+        self.assertEqual(profile.year_end_month, '06')
+        self.assertTrue(before.issubset(set(taxpayer.filing_profiles.values_list('pk', flat=True))))
+        self.assertTrue(profile.audit_events.filter(kind='CONFIG_CREATED').exists())
+        self.assertEqual(WorkOrder.objects.count(), 0)
+
+    def test_invalid_card_settings_do_not_save_client(self):
+        taxpayer = self.profile.client
+        definition = FormDefinition.objects.filter(is_active=True).exclude(
+            pk__in=taxpayer.filing_profiles.values('form_definition_id')).first()
+        response = self.client.post(reverse('workorders:client-edit', args=[taxpayer.pk]),
+            self.edit_data(registered_name='SHOULD NOT SAVE', **{
+                'cards-filings': [str(definition.pk)], 'cards-calendar_or_fiscal': 'CALENDAR',
+                'cards-year_end_month': '06'}))
+        self.assertContains(response, 'Calendar years end in December')
+        taxpayer.refresh_from_db()
+        self.assertNotEqual(taxpayer.registered_name, 'SHOULD NOT SAVE')
+        self.assertFalse(taxpayer.filing_profiles.filter(form_definition=definition).exists())
+
+    def test_existing_card_cannot_be_added_twice(self):
+        response = self.client.post(reverse('workorders:client-edit', args=[self.profile.client_id]),
+            self.edit_data(**{'cards-filings': [str(self.profile.form_definition_id)],
+                             'cards-calendar_or_fiscal': 'CALENDAR', 'cards-year_end_month': '12'}))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['cards'].errors)
+        self.assertEqual(ClientFilingProfile.objects.filter(client=self.profile.client,
+                         form_definition=self.profile.form_definition).count(), 1)
+
+    def test_adding_cards_requires_profile_permission(self):
+        from django.contrib.auth.models import Permission
+        user = get_user_model().objects.create_user('details_only_editor')
+        user.user_permissions.add(*Permission.objects.filter(codename__in=['view_client', 'change_client']))
+        self.client.force_login(user)
+        definition = FormDefinition.objects.filter(is_active=True).exclude(
+            pk__in=self.profile.client.filing_profiles.values('form_definition_id')).first()
+        response = self.client.post(reverse('workorders:client-edit', args=[self.profile.client_id]),
+            self.edit_data(**{'cards-filings': [str(definition.pk)]}))
+        self.assertEqual(response.status_code, 403)
+
     def test_rdo_email_is_optional_validated_and_separate_from_filing_email(self):
         from workorders.contact_defaults import COMPANY_CONTACT
         taxpayer = self.profile.client
