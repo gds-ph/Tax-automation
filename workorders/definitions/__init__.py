@@ -10,7 +10,9 @@ from .form_0619f import DEFINITION as FORM_0619F
 
 from .form_1600vt import DEFINITION as FORM_1600VT
 
-DEFINITIONS = {item.key: item for item in (FORM_2551Q, FORM_1601C, FORM_1601EQ, FORM_0619F, FORM_1600VT)}
+from .form_2550qv2024 import DEFINITION as FORM_2550Q
+
+DEFINITIONS = {item.key: item for item in (FORM_2551Q, FORM_1601C, FORM_1601EQ, FORM_0619F, FORM_1600VT, FORM_2550Q)}
 
 
 def get_definition(key):

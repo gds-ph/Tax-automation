@@ -212,3 +212,6 @@ FEISHU_BOT_ALERT_MENTIONS = os.environ.get('FEISHU_BOT_ALERT_MENTIONS', 'True').
 FEISHU_BOT_APPROVAL_MENTIONS = os.environ.get('FEISHU_BOT_APPROVAL_MENTIONS', '')
 
 ENABLE_1600VT_SUBMISSION = os.environ.get('ENABLE_1600VT_SUBMISSION', '0') == '1'
+
+# Enable after the 2550Q submission flow and dynamic saved-return selector are verified.
+ENABLE_2550Q_SUBMISSION = os.environ.get('ENABLE_2550Q_SUBMISSION', '0') == '1'

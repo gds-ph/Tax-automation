@@ -1,7 +1,9 @@
 """COR transcription and conservative suggestions; requires explicit human review."""
 import json
 import re
+import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -48,14 +50,17 @@ def read_cor(data):
     from .gds_reader import read_images
     if not data.startswith(b'%PDF-') or len(data) > 20_000_000:
         raise ValidationError('Choose a PDF no larger than 20 MB.')
-    if not settings.COR_NODE_MODULES:
+    poppler = bool(shutil.which('pdftoppm') and shutil.which('pdfinfo'))
+    if not poppler and not settings.COR_NODE_MODULES:
         raise ValidationError('The local PDF renderer is not configured.')
     with tempfile.TemporaryDirectory(prefix='ebir-cor-') as temp:
         path = Path(temp) / 'source.pdf'
         path.write_bytes(data)
         try:
-            result = subprocess.run(['node', str(settings.BASE_DIR / 'worker/render-cor.mjs'),
-                                     settings.COR_NODE_MODULES, str(path)], capture_output=True,
+            command = ([sys.executable, str(settings.BASE_DIR / 'worker/render_cor.py'), str(path)]
+                       if poppler else ['node', str(settings.BASE_DIR / 'worker/render-cor.mjs'),
+                                        settings.COR_NODE_MODULES, str(path)])
+            result = subprocess.run(command, capture_output=True,
                                     timeout=60, check=True,
                                     creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             images = json.loads(result.stdout)['images']

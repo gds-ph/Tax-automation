@@ -91,6 +91,17 @@ class Agent(models.Model):
 from workorders.model_support import ServiceModel
 
 
+class AutoSubmissionConsent(ServiceModel):
+    work_order = models.OneToOneField('workorders.WorkOrder', on_delete=models.PROTECT,
+                                     related_name='auto_submission_consent')
+    snapshot = models.ForeignKey('workorders.WorkOrderSnapshot', on_delete=models.PROTECT)
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    requested_at = models.DateTimeField(default=timezone.now)
+    state = models.CharField(max_length=12, default='PENDING', choices=[
+        (value, value) for value in ('PENDING', 'APPLIED', 'BLOCKED')])
+    reason = models.CharField(max_length=500, blank=True)
+
+
 class PreparationAttempt(ServiceModel):
     class State(models.TextChoices):
         RUNNING = "RUNNING", "Running"

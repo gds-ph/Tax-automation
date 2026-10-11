@@ -25,7 +25,8 @@ MONTHLY_LIVE_KEY = 'SUBMIT_1601CV2018'
 EQ_LIVE_KEY = 'SUBMIT_1601EQ'
 F_LIVE_KEY = 'SUBMIT_0619F'
 VT_LIVE_KEY = 'SUBMIT_1600VT'
-SUPPORTED_KEYS = {KEY, LIVE_KEY, MONTHLY_LIVE_KEY, EQ_LIVE_KEY, F_LIVE_KEY, VT_LIVE_KEY}
+VAT_LIVE_KEY = 'SUBMIT_2550QV2024'
+SUPPORTED_KEYS = {KEY, LIVE_KEY, MONTHLY_LIVE_KEY, EQ_LIVE_KEY, F_LIVE_KEY, VT_LIVE_KEY, VAT_LIVE_KEY}
 SUCCESS = 'SUBMITTED_WAITING_FOR_CONFIRMATION'
 LIVE_RESULTS = {SUCCESS, 'SUBMISSION_UNCONFIRMED', 'BLOCKED_NOT_APPROVED', 'WORK_ORDER_VERIFICATION_FAILED', 'SAVED_RETURN_NOT_UNIQUE', 'SAVED_RETURN_ROW_NOT_FOUND', 'FAILED_SYSTEM'}
 RESULTS = {'APPROVED_READY_TO_SUBMIT', 'BLOCKED_NOT_APPROVED', 'WORK_ORDER_VERIFICATION_FAILED',
@@ -34,6 +35,10 @@ RESULTS = {'APPROVED_READY_TO_SUBMIT', 'BLOCKED_NOT_APPROVED', 'WORK_ORDER_VERIF
 
 def automation_key(approval):
     number = approval.snapshot.data['form']['expected_form_number']
+    if number == '2550Qv2024':
+        if not approval.submission_enabled:
+            raise WorkerError('unsupported_automation', '2550Q has no queued revalidation workflow.')
+        return VAT_LIVE_KEY
     if number == '1600VTv2018':
         if not approval.submission_enabled:
             raise WorkerError('unsupported_automation', '1600VT has no queued revalidation workflow.')
@@ -74,7 +79,7 @@ def approve(*, actor, order_id, version, digest, comment='', submission_enabled=
         raise ValidationError('The filing changed. Reload and review the PDF again.')
     if submission_enabled and not order.live_submission_available:
         raise ValidationError('Live submission for this form is not enabled. Complete the worker integration first.')
-    if order.expected_form_number in {'1601Cv2018', '1601EQ', '0619F', '1600VTv2018'} and not submission_enabled:
+    if order.expected_form_number in {'1601Cv2018', '1601EQ', '0619F', '1600VTv2018', '2550Qv2024'} and not submission_enabled:
         raise ValidationError('Open-and-validate tests for this form run separately from the approval queue.')
     existing = Stage2Approval.objects.filter(work_order=order).first()
     if existing:
@@ -205,6 +210,9 @@ def payload(approval):
     data['Inputs'].update(ApprovedForSubmission=True, SubmissionEnabled=approval.submission_enabled,
         WorkOrderId=order.work_order_id, ApprovalId=str(approval.pk),
         ApprovedBy=approval.approved_by.get_username(), ApprovedPdfSha256=approval.pdf_sha256)
+    if order.expected_form_number == '2550Qv2024':
+        # Stage 2 checks YYYYQn and separately prefixes YearEndMonth in the XML name.
+        data['ExpectedReturnPeriod'] = f'{order.filing_year}Q{order.filing_quarter}'
     data['Inputs'].update(ApprovedReturnPeriod=data['ExpectedReturnPeriod'],
                           ApprovedSavedReturnName=data['ExpectedSavedReturnName'],
                           ApprovedXmlPath=order.saved_xml_path)

@@ -91,6 +91,8 @@ def review(request, draft_id):
             if hashlib.sha256(current).hexdigest() != draft['sha256']:
                 raise ValidationError('The source PDF changed after reading. Read the current COR again before saving.')
             client = save_setup(actor=request.user, draft=draft, cleaned=form.cleaned_data)
+        except Http404:
+            form.add_error(None, 'The source PDF was moved or renamed. Your setup has not been saved. Open the client filing cards again and review the current COR before saving.')
         except (ValidationError, directory.DirectoryUnavailable) as exc:
             for message in (exc.messages if isinstance(exc, ValidationError) else [str(exc)]):
                 form.add_error(None, message)

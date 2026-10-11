@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.core import signing
 from django.core.cache import cache
 from django.test import TestCase, override_settings, Client as Browser
+from django.http import Http404
 from django.urls import reverse
 from .cor_forms import CORReviewForm
 from .cor_services import save_setup
@@ -32,6 +33,16 @@ class CORSetupTests(TestCase):
         self.assertContains(self.client.get(self.url), 'Save filing setup')
         self.assertEqual(Client.objects.count(), 0)
 
+    @patch('workorders.cor_views.source_document', side_effect=Http404('Source moved'))
+    def test_missing_source_preserves_review_instead_of_404(self, source):
+        response = self.client.post(self.url, self.data)
+        self.assertContains(response, 'The source PDF was moved or renamed.')
+        self.assertTrue(response.context['form'].is_bound)
+        self.assertEqual(response.context['form']['registered_name'].value(), self.data['registered_name'])
+        self.assertEqual(Client.objects.count(), 0)
+        self.assertEqual(RegistrationSetup.objects.count(), 0)
+        self.assertEqual(WorkOrder.objects.count(), 0)
+
     @patch('workorders.cor_views.read_cor')
     @patch('workorders.cor_views.source_document')
     def test_automatic_cards_reuse_scan_without_creating_filing(self, source, reader):
@@ -54,8 +65,10 @@ class CORSetupTests(TestCase):
         response = self.client.post(self.url, self.data | {'telephone_number': '', 'email_address': ''})
         self.assertEqual(response.status_code, 302)
         client = Client.objects.get()
-        self.assertEqual(client.telephone_number, '')
-        self.assertEqual(client.email_address, '')
+        from workorders.contact_defaults import contact_for_client
+        contact = contact_for_client(client.client_code)
+        self.assertEqual(client.telephone_number, contact['telephone_number'])
+        self.assertEqual(client.email_address, contact['email_address'])
         self.assertEqual(WorkOrder.objects.count(), 0)
 
     @patch('workorders.cor_views.source_document')
@@ -67,7 +80,8 @@ class CORSetupTests(TestCase):
         self.assertEqual(Client.objects.count(), 1)
         self.assertEqual(ClientFilingProfile.objects.count(), 2)
         self.assertEqual(WorkOrder.objects.count(), 0)
-        self.assertFalse(ClientFilingProfile.objects.filter(form_definition__preparation_automation_available=True).exists())
+        self.assertTrue(ClientFilingProfile.objects.filter(form_definition__definition_key='2550qv2024_zero', form_definition__preparation_automation_available=True).exists())
+        self.assertFalse(ClientFilingProfile.objects.filter(form_definition__form_code='1701Q', form_definition__preparation_automation_available=True).exists())
         self.assertEqual(Client.objects.get().audit_events.count(), 1)
         # Replaying a saved review returns the existing client, never duplicates it.
         self.assertEqual(self.client.post(self.url, self.data).url, response.url)

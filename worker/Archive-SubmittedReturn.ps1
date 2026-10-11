@@ -12,7 +12,7 @@ $receipt = Get-Content -LiteralPath $ReceiptPath -Raw | ConvertFrom-Json
 $claim = $receipt.Claim
 $success = 'SUBMITTED_WAITING_FOR_CONFIRMATION'
 if ($receipt.Phase -ne 'Completed' -or $receipt.Result.SubmissionStatus -ne $success -or
-    $claim.AutomationKey -notin @('SUBMIT_2551QV2018','SUBMIT_1601CV2018','SUBMIT_1601EQ','SUBMIT_0619F','SUBMIT_1600VT') -or
+    $claim.AutomationKey -notin @('SUBMIT_2551QV2018','SUBMIT_1601CV2018','SUBMIT_1601EQ','SUBMIT_0619F','SUBMIT_1600VT','SUBMIT_2550QV2024') -or
     [string]$receipt.Result.AttemptId -cne [string]$claim.AttemptId) {
     throw 'A completed live submission receipt is required. Do not rerun submission.'
 }

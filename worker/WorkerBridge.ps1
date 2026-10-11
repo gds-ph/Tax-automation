@@ -26,7 +26,7 @@ $automationKeys = @('PREPARE_2551QV2018_ZERO')
 if ($config.PSObject.Properties.Name -contains 'PreparationAutomationKeys') {
     $automationKeys = @($config.PreparationAutomationKeys)
 }
-$allowedAutomationKeys = @('PREPARE_2551QV2018_ZERO','PREPARE_1601CV2018_ZERO','PREPARE_1601EQ_ZERO','PREPARE_0619F_ZERO','PREPARE_1600VT_ZERO')
+$allowedAutomationKeys = @('PREPARE_2551QV2018_ZERO','PREPARE_1601CV2018_ZERO','PREPARE_1601EQ_ZERO','PREPARE_0619F_ZERO','PREPARE_1600VT_ZERO','PREPARE_2550QV2024_ZERO')
 if ($automationKeys.Count -eq 0 -or @($automationKeys | Where-Object { $_ -notin $allowedAutomationKeys }).Count -gt 0 -or @($automationKeys | Select-Object -Unique).Count -ne $automationKeys.Count) {
     throw 'Invalid configured automation keys.'
 }
@@ -207,9 +207,20 @@ if ($Action -eq 'Publish') {
             throw ($detail + ' Retry Publish only; do not rerun Tax-Filing.')
         }
     }
+    $resultStatus = [string]$outputs.PreparationStatusOutput
+    $resultPdfPath = [string]$outputs.PreparedPdfPath
+    $resultXmlPath = [string]$outputs.SavedXmlPath
+    # The supplied 2550Q flow retains expected paths on early failures.
+    # Publish only the failure; never upload an existing return as this attempt.
+    if ($claim.AutomationKey -eq 'PREPARE_2550QV2024_ZERO' -and $outputs.PreparationStatusOutput -ne 'AWAITING_SUBMISSION_APPROVAL') {
+        if ($outputs.PreparationStatusOutput -in @('PREPARATION_BLOCKED_EXISTING_OUTPUT','PREPARATION_FAILED_INVALID_QUARTER')) {
+            $resultStatus = 'FAILED_BUSINESS'
+        }
+        $resultPdfPath = ''; $resultXmlPath = ''
+    }
     $result=Invoke-WorkerApi 'POST' $claim.ResultUrl @{
-        lease_token=$claim.LeaseToken; PreparationStatusOutput=[string]$outputs.PreparationStatusOutput;
-        PreparedPdfPath=[string]$outputs.PreparedPdfPath; SavedXmlPath=[string]$outputs.SavedXmlPath
+        lease_token=$claim.LeaseToken; PreparationStatusOutput=$resultStatus;
+        PreparedPdfPath=$resultPdfPath; SavedXmlPath=$resultXmlPath
     }
     $journal.Phase='Completed';Write-Journal $journal
     $result | ConvertTo-Json -Depth 5

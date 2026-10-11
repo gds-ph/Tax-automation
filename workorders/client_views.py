@@ -1,6 +1,7 @@
 """Client-first navigation; creates local queue entries, never launches PAD."""
 import uuid
 from django import forms
+from django.conf import settings
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import OperationalError, IntegrityError
@@ -17,6 +18,7 @@ from .models import Client, ClientFilingProfile
 from .definitions import get_definition
 from .views import dashboard_permission, _add_errors
 from . import services
+from .period_policy import default_completed_period, validate_completed_period
 
 
 class PreparationForm(forms.Form):
@@ -26,12 +28,18 @@ class PreparationForm(forms.Form):
     filing_month = forms.TypedChoiceField(coerce=int, choices=[('', 'Choose a month')] + [(m, f'{m:02d}') for m in range(1, 13)], label='Month')
     zero_filing_approved = forms.BooleanField(required=False, label='I have checked the details and confirm this is a zero filing.')
     request_token = forms.CharField(widget=forms.HiddenInput)
+    auto_approve = forms.BooleanField(required=False, label='Auto approve and submit after successful preparation')
 
-    def __init__(self, *args, frequency='QUARTERLY', form_code='', **kwargs):
+    def __init__(self, *args, frequency='QUARTERLY', form_code='', can_auto_approve=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.frequency = frequency
+        if not can_auto_approve:
+            self.fields.pop('auto_approve')
         self.fields.pop('filing_quarter' if frequency == 'MONTHLY' else 'filing_month')
         if frequency == 'MONTHLY':
             self.fields['zero_filing_approved'].label = ('I confirm this is a private withholding agent with no compensation, withholding, attachments, tax relief or prior-month adjustments for this month.')
+        if form_code == '2550Q':
+            self.fields['zero_filing_approved'].label = 'I confirm this is a calendar-year, original, full-quarter 2550Q return for a Micro taxpayer, with no sales, purchases, input VAT, credits, carryovers, adjustments, tax relief or penalties.'
         if form_code == '1600VT':
             self.fields['zero_filing_approved'].label = 'I confirm a non-amended private-agent 1600-VT return with no tax withheld, attachments, tax relief, credits or penalties.'
         if form_code == '0619F':
@@ -48,6 +56,14 @@ class PreparationForm(forms.Form):
             self.add_error('filing_mode', 'Non-zero filing automation is not yet available. No task has been queued.')
         elif data.get('filing_mode') == 'ZERO' and not data.get('zero_filing_approved'):
             self.add_error('zero_filing_approved', 'Confirm that this is a zero filing.')
+        period = data.get('filing_month') if self.frequency == 'MONTHLY' else data.get('filing_quarter')
+        if data.get('filing_year') and data['filing_year'] != '0000' and period:
+            try:
+                validate_completed_period(self.frequency, data['filing_year'], data.get('filing_month'), data.get('filing_quarter'))
+            except ValidationError as error:
+                for field, messages in error.message_dict.items():
+                    for message in messages:
+                        self.add_error(field, message)
         return data
 
 
@@ -241,14 +257,12 @@ def prepare(request, pk, profile_pk):
     if not available(profile):
         return render(request, 'workorders/preparation_unavailable.html', {'taxpayer': profile.client, 'section': 'clients'}, status=409)
     versions = {'client': profile.client.version, 'form': profile.form_definition.version, 'profile': profile.version}
-    today = timezone.localdate()
-    initial = {'filing_year': str(today.year),
-               'filing_month': today.month,
-               'filing_quarter': (today.month - 1) // 3 + 1,
+    initial = {**default_completed_period(profile.form_definition.filing_frequency),
                'request_token': signing.dumps({'actor': request.user.pk, 'profile': str(profile.pk), 'request': str(uuid.uuid4()), 'versions': versions}, salt='client-preparation')}
     monthly = profile.form_definition.filing_frequency == 'MONTHLY'
     form = PreparationForm(request.POST if request.method == 'POST' else None, initial=initial,
-                           frequency=profile.form_definition.filing_frequency, form_code=profile.form_definition.form_code)
+                           frequency=profile.form_definition.filing_frequency, form_code=profile.form_definition.form_code,
+                           can_auto_approve=(profile.form_definition.form_code != '2550Q' or getattr(settings, 'ENABLE_2550Q_SUBMISSION', False)) and request.user.has_perms(['automation_api.approve_stage2', 'workorders.view_prepared_pdf']))
     status = 200
     if request.method == 'POST' and form.is_valid():
         try:
@@ -258,7 +272,8 @@ def prepare(request, pk, profile_pk):
             data = {name: form.cleaned_data[name] for name in ('filing_year', 'filing_month' if monthly else 'filing_quarter', 'zero_filing_approved')}
             data.update(zero_filing=True, form_data={} if profile.form_definition.form_code != '2551Q' else {'atc_code': profile.default_atc_code or profile.default_form_data.get('atc_code') or 'PT 010'})
             order = services.create_and_queue_work_order(actor=request.user, data=data, client_filing_profile_id=profile.pk,
-                        request_id=uuid.UUID(token['request']), source_versions=token['versions'])
+                        request_id=uuid.UUID(token['request']), source_versions=token['versions'],
+                        auto_approve=form.cleaned_data.get('auto_approve', False))
         except signing.BadSignature:
             form.add_error(None, 'This page has expired. Reload and review the filing again.')
             status = 400

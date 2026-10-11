@@ -84,6 +84,12 @@
 {% else %}
 <section id="submission-review" class="panel next-action" aria-labelledby="next-action-heading">
 <h2 id="next-action-heading">Next action</h2>
+{% if order.status != 'CANCELLED' and order.auto_submission_consent %}
+{% with consent=order.auto_submission_consent %}
+{% if consent.state == 'PENDING' %}<p class="notice">Auto approve and submit was authorized by {{ consent.requested_by }}. Submission will be queued after successful preparation and verification.</p>
+{% elif consent.state == 'BLOCKED' %}<p class="notice error">Automatic approval needs manual review: {{ consent.reason }}</p>
+{% else %}<p class="notice">Automatically approved under the advance authorization from {{ consent.requested_by }}. Check the submission status below.</p>{% endif %}
+{% endwith %}{% endif %}
 {% if order.status == 'CANCELLED' %}
   <p>This filing was cancelled. No further preparation or submission is queued. Its documents remain available.</p>
   {% if cancellation_cleanup.state == 'DONE' %}<p><strong>XML moved to Cancelled archive.</strong></p><p class="mono">{{ cancellation_cleanup.archive_path }}</p>

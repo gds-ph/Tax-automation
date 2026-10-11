@@ -67,6 +67,10 @@ def payload(attempt):
         period = inputs['FilingMonth'] + inputs['FilingYear']
         name = ''.join(inputs[key] for key in ('TIN1','TIN2','TIN3','TIN4'))+'-'+inputs['ExpectedFormNumber']+'-'+period
         pdf = f"{inputs['ClientNameSafe']}_{inputs['FormCode']}_{inputs['FilingYear']}_{inputs['FilingMonth']}_COMPLETE.pdf"
+    if form['expected_form_number'] == '2550Qv2024':
+        inputs['FormCode'] = '2550Qv2024'
+        inputs['FilingMonth'] = ''
+        pdf = f"{inputs['ClientNameSafe']}_2550Qv2024_{inputs['FilingYear']}_Q{inputs['FilingQuarter']}_COMPLETE.pdf"
     if form['expected_form_number'] == '0619F':
         name += 'WB'
     if form['expected_form_number'] == '1601EQ':
@@ -105,7 +109,7 @@ def claim(*, agent, request_id, automation_keys):
     _active(agent)
     from .cancellation import lock_execution, cleanup_pending
     lock_execution()
-    if not valid_automation_keys(automation_keys, {'PREPARE_2551QV2018_ZERO', 'PREPARE_1601CV2018_ZERO', 'PREPARE_1601EQ_ZERO', 'PREPARE_0619F_ZERO', 'PREPARE_1600VT_ZERO'}):
+    if not valid_automation_keys(automation_keys, {'PREPARE_2551QV2018_ZERO', 'PREPARE_1601CV2018_ZERO', 'PREPARE_1601EQ_ZERO', 'PREPARE_0619F_ZERO', 'PREPARE_1600VT_ZERO', 'PREPARE_2550QV2024_ZERO'}):
         raise WorkerError('unsupported_automation', 'Advertise supported preparation automation keys.', 400)
     existing=PreparationAttempt.objects.select_related('work_order','snapshot').filter(pk=request_id).first()
     if existing:
@@ -310,6 +314,8 @@ def record_result(*,agent,attempt_id,lease_token,data):
     if state == 'AWAITING_SUBMISSION_APPROVAL':
         from .prepared_archive import enqueue
         enqueue(order)
+    from .auto_approval import apply_auto_approval
+    apply_auto_approval(order)
     return order
 
 

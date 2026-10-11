@@ -9,10 +9,27 @@
 <form method="post" class="panel detail-section preparation-form" novalidate>{% csrf_token %}{{ form.request_token }}
 {% if form.errors %}<div class="notice error" role="alert">Please review the filing details.{{ form.non_field_errors }}{{ form.request_token.errors }}</div>{% endif %}
 <div class="field-grid">{% include 'workorders/field.html' with field=form.filing_mode %}{% include 'workorders/field.html' with field=form.filing_year %}{% if form.filing_month %}{% include 'workorders/field.html' with field=form.filing_month %}{% else %}{% include 'workorders/field.html' with field=form.filing_quarter %}{% endif %}</div>
-<p class="small muted">Defaults to the current year and {% if form.filing_month %}month{% else %}quarter{% endif %} in Manila. Change the period if you are preparing an earlier return; this is not a determination of which filing is due.</p>
+<p class="small muted">Defaults to the last completed {% if form.filing_month %}month{% else %}quarter{% endif %} in Manila. Ongoing and future periods cannot be queued. You can select an earlier period; this is not a determination of which filing is due.</p>
 <p id="nonzero-notice" class="notice" hidden>Non-zero filing automation is not yet available. You can switch back to zero filing to continue.</p>
-<div class="confirmation-box" id="zero-confirmation">{{ form.zero_filing_approved }}<div><label for="{{ form.zero_filing_approved.id_for_label }}">{{ form.zero_filing_approved.label }}</label>{{ form.zero_filing_approved.errors }}</div></div>
-<div class="form-footer"><a class="button secondary" href="{% url 'workorders:client-detail' taxpayer.pk %}">Cancel</a><button id="queue-preparation" class="button primary" type="submit">Queue preparation →</button></div>
+<section class="prep-step" id="zero-confirmation" aria-labelledby="confirm-heading">
+  <div class="prep-step-head"><h2 id="confirm-heading">Confirm the return</h2><span class="pill subtle">Required</span></div>
+  <label class="choice-card" for="{{ form.zero_filing_approved.id_for_label }}">{{ form.zero_filing_approved }}<span class="choice-body"><span class="choice-title">{{ form.zero_filing_approved.label }}</span></span></label>
+  {{ form.zero_filing_approved.errors }}
+</section>
+{% if form.auto_approve %}<section class="prep-step" aria-labelledby="after-heading">
+  <div class="prep-step-head"><h2 id="after-heading">After preparation</h2><span class="pill subtle">Optional</span></div>
+  <label class="choice-card choice-risky" for="{{ form.auto_approve.id_for_label }}">
+    <span class="choice-body">
+      <span class="choice-title">Auto approve and submit <span class="pill warn">Skips review</span></span>
+      <span class="choice-text">Submit to BIR as soon as preparation and verification succeed, without reviewing the prepared PDF first.</span>
+      <span class="choice-fine">By switching this on I authorize submission of this client's return for the selected form and period, and confirm it has not already been submitted. Leave it off to review and approve it yourself.</span>
+      <span class="choice-alert" role="note">This return will be submitted automatically. Nobody will review the PDF first.</span>
+    </span>
+    {{ form.auto_approve }}
+  </label>
+  {{ form.auto_approve.errors }}
+</section>{% endif %}
+<div class="form-footer"><a class="button secondary" href="{% url 'workorders:client-detail' taxpayer.pk %}">Cancel</a><button id="queue-preparation" class="button primary" type="submit" data-label="Queue preparation →" data-auto-label="Queue &amp; auto-submit →">Queue preparation →</button></div>
 </form>
 </div>
 {% load static %}<script src="{% static 'preparation-mode.js' %}" defer></script>

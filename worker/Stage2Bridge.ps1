@@ -30,7 +30,7 @@ $automationKeys = @('REVALIDATE_2551QV2018','SUBMIT_2551QV2018')
 if ($config.PSObject.Properties.Name -contains 'Stage2AutomationKeys') {
     $automationKeys = @($config.Stage2AutomationKeys)
 }
-$allowedAutomationKeys = @('REVALIDATE_2551QV2018','SUBMIT_2551QV2018','SUBMIT_1601CV2018','SUBMIT_1601EQ','SUBMIT_0619F','SUBMIT_1600VT')
+$allowedAutomationKeys = @('REVALIDATE_2551QV2018','SUBMIT_2551QV2018','SUBMIT_1601CV2018','SUBMIT_1601EQ','SUBMIT_0619F','SUBMIT_1600VT','SUBMIT_2550QV2024')
 if ($automationKeys.Count -eq 0 -or @($automationKeys | Where-Object { $_ -notin $allowedAutomationKeys }).Count -gt 0 -or @($automationKeys | Select-Object -Unique).Count -ne $automationKeys.Count) {
     throw 'Invalid configured automation keys.'
 }
@@ -184,7 +184,7 @@ if ($Action -eq 'Start') {
     if ($claim.AutomationKey -notin $automationKeys) { throw 'Unsupported automation key.' }
     $renewal=Invoke-WorkerApi 'POST' $claim.RenewUrl @{ lease_token=$claim.LeaseToken }
     $claim.LeaseExpiresAt=$renewal.LeaseExpiresAt
-    $isSubmission = $claim.AutomationKey -in @('SUBMIT_2551QV2018','SUBMIT_1601CV2018','SUBMIT_1601EQ','SUBMIT_0619F','SUBMIT_1600VT')
+    $isSubmission = $claim.AutomationKey -in @('SUBMIT_2551QV2018','SUBMIT_1601CV2018','SUBMIT_1601EQ','SUBMIT_0619F','SUBMIT_1600VT','SUBMIT_2550QV2024')
     if ($claim.Inputs.SubmissionEnabled -isnot [bool] -or $claim.Inputs.SubmissionEnabled -ne $isSubmission) { throw 'Approval mode mismatch.' }
     if ($claim.Inputs.ApprovedForSubmission -ne $true) { throw 'Approval is missing.' }
     if ((Get-FileHash -LiteralPath $claim.ExpectedPdfPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $claim.Inputs.ApprovedPdfSha256) { throw 'Approved PDF mismatch.' }
@@ -233,7 +233,7 @@ if ($Action -eq 'Publish') {
     }
     $outputs=$journal.Result
     if ($outputs.SubmissionStatus -eq 'SUBMITTED_WAITING_FOR_CONFIRMATION') {
-        if ($claim.AutomationKey -notin @('SUBMIT_2551QV2018','SUBMIT_1601CV2018','SUBMIT_1601EQ','SUBMIT_0619F','SUBMIT_1600VT')) { throw 'This approval did not authorize submission.' }
+        if ($claim.AutomationKey -notin @('SUBMIT_2551QV2018','SUBMIT_1601CV2018','SUBMIT_1601EQ','SUBMIT_0619F','SUBMIT_1600VT','SUBMIT_2550QV2024')) { throw 'This approval did not authorize submission.' }
         $screenshot = [IO.Path]::GetFullPath([string]$outputs.SuccessScreenshotPath)
         if ($screenshot -cne [IO.Path]::GetFullPath([string]$claim.Inputs.SuccessScreenshotPath)) { throw 'Screenshot belongs to another attempt.' }
         $imageFile = Get-Item -LiteralPath $screenshot

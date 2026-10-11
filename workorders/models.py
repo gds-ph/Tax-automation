@@ -178,6 +178,7 @@ class WorkOrder(ServiceModel):
     @property
     def live_submission_available(self):
         return self.expected_form_number == '2551Qv2018' or (
+            self.expected_form_number == '2550Qv2024' and getattr(settings, 'ENABLE_2550Q_SUBMISSION', False)) or (
             self.expected_form_number == '1601Cv2018' and getattr(settings, 'ENABLE_1601C_SUBMISSION', False)) or (
             self.expected_form_number == '1601EQ' and getattr(settings, 'ENABLE_1601EQ_SUBMISSION', False)) or (
             self.expected_form_number == '0619F' and getattr(settings, 'ENABLE_0619F_SUBMISSION', False)) or (

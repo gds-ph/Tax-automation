@@ -37,7 +37,8 @@ def _orders():
                                     Q(form_code='1601C', expected_form_number='1601Cv2018') |
                                     Q(form_code='1601EQ', expected_form_number='1601EQ') |
                                     Q(form_code='0619F', expected_form_number='0619F') |
-                                    Q(form_code='1600VT', expected_form_number='1600VTv2018'))
+                                    Q(form_code='1600VT', expected_form_number='1600VTv2018') |
+                                    Q(form_code='2550Q', expected_form_number='2550Qv2024'))
 
 
 @dashboard_permission('workorders.view_workorder')

@@ -209,6 +209,8 @@ def validate_readiness(order):
         raise ValidationError("Filing details do not match the reviewed snapshot.")
     if not order.zero_filing or not order.zero_filing_approved:
         raise ValidationError("Explicit zero-filing confirmation is required.")
+    from .period_policy import validate_completed_period
+    validate_completed_period(definition.filing_frequency, order.filing_year, order.filing_month, order.filing_quarter)
     return definition.automation_key
 
 
@@ -260,7 +262,7 @@ def link_legacy_work_order(*, work_order_id, actor, expected_version, client_fil
 
 
 @transaction.atomic
-def create_and_queue_work_order(*, actor, data, client_filing_profile_id, request_id, source_versions):
+def create_and_queue_work_order(*, actor, data, client_filing_profile_id, request_id, source_versions, auto_approve=False):
     require_permission(actor, "workorders.add_workorder")
     require_permission(actor, "workorders.change_workorder")
     existing = WorkOrder.objects.filter(creation_request_id=request_id).first()
@@ -273,4 +275,8 @@ def create_and_queue_work_order(*, actor, data, client_filing_profile_id, reques
     if versions != source_versions:
         raise ValidationError("The client or filing settings changed. Reload this page and review them again.")
     order = create_work_order(actor=actor, data=data, client_filing_profile_id=profile.pk, creation_request_id=request_id)
-    return transition_work_order(work_order_id=order.pk, actor=actor, expected_version=order.version, target=Status.READY_TO_PREPARE)
+    order = transition_work_order(work_order_id=order.pk, actor=actor, expected_version=order.version, target=Status.READY_TO_PREPARE)
+    if auto_approve:
+        from automation_api.auto_approval import request_auto_approval
+        request_auto_approval(actor=actor, order=order)
+    return order

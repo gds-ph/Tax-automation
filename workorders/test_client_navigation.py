@@ -33,6 +33,24 @@ class ClientNavigationTests(TestCase):
         self.assertNotContains(response,'Choose a filing type')
         self.assertIn('no-store',response.headers['Cache-Control'])
 
+    def test_auto_approval_is_opt_in_and_request_replay_does_not_change_it(self):
+        from automation_api.models import AutoSubmissionConsent
+        data = self.post_data()
+        self.assertContains(self.client.get(self.url), 'Auto approve and submit')
+        self.assertEqual(self.client.post(self.url, data).status_code, 302)
+        self.assertFalse(AutoSubmissionConsent.objects.exists())
+        self.assertEqual(self.client.post(self.url, {**data, 'auto_approve': 'on'}).status_code, 302)
+        self.assertFalse(AutoSubmissionConsent.objects.exists())
+
+    def test_queue_records_explicit_auto_approval(self):
+        from automation_api.models import AutoSubmissionConsent
+        response = self.client.post(self.url, {**self.post_data(), 'auto_approve': 'on'})
+        self.assertEqual(response.status_code, 302)
+        consent = AutoSubmissionConsent.objects.get()
+        self.assertEqual(consent.state, 'PENDING')
+        self.assertEqual(consent.requested_by_id, self.actor.pk)
+        self.assertEqual(consent.snapshot_id, consent.work_order.current_snapshot_id)
+
     def test_client_search_and_empty_state(self):
         response=self.client.get(reverse('workorders:clients'),{'q':'CLIENT ONE'})
         self.assertContains(response,'FAKE CLIENT ONE');self.assertNotContains(response,'FAKE CLIENT TWO')
@@ -207,8 +225,10 @@ class ClientNavigationTests(TestCase):
     def test_client_edit_requires_change_permission(self):
         self.client.logout()
         viewer=get_user_model().objects.create_user(username='fake_viewer')
-        viewer.groups.add(Group.objects.get(name='Approver'))
         self.client.force_login(viewer)
+        # Login provisions the normal workspace role; explicitly model a restricted viewer.
+        viewer.groups.clear()
+        viewer.user_permissions.set(Group.objects.get(name='Approver').permissions.exclude(codename='change_client'))
         url=reverse('workorders:client-edit',args=[self.profile.client_id])
         self.assertEqual(self.client.get(url).status_code,403)
         detail=self.client.get(reverse('workorders:client-detail',args=[self.profile.client_id]),{'tab':'details'})
@@ -222,14 +242,14 @@ class ClientNavigationTests(TestCase):
         self.assertFalse(response.context['form']['zero_filing_approved'].value())
         self.assertNotIn('atc_code', response.context['form'].fields)
 
-    def test_current_period_defaults_across_quarter_and_year_boundaries(self):
+    def test_completed_period_defaults_across_quarter_and_year_boundaries(self):
         from datetime import date
-        for day, quarter in ((date(2026, 3, 31), 1), (date(2026, 4, 1), 2),
-                             (date(2026, 9, 15), 3), (date(2026, 10, 1), 4),
-                             (date(2027, 1, 1), 1)):
-            with self.subTest(day=day), patch('workorders.client_views.timezone.localdate', return_value=day):
+        for day, year, quarter in ((date(2026, 3, 31), '2025', 4), (date(2026, 4, 1), '2026', 1),
+                                   (date(2026, 9, 15), '2026', 2), (date(2026, 10, 1), '2026', 3),
+                                   (date(2027, 1, 1), '2026', 4)):
+            with self.subTest(day=day), patch('workorders.period_policy.manila_today', return_value=day):
                 form = self.client.get(self.url).context['form']
-                self.assertEqual(form['filing_year'].value(), str(day.year))
+                self.assertEqual(form['filing_year'].value(), year)
                 self.assertEqual(form['filing_quarter'].value(), quarter)
 
     def test_prepare_creates_and_queues_atomically(self):

@@ -919,6 +919,48 @@ a.client-card:hover {
 .confirmation-box label { font-size: 13px; font-weight: 600; }
 .confirmation-box p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 
+/* Preparation form: a required confirmation and an optional, risky auto-submit, styled so they never look
+   equally safe. Cards stay neutral until chosen; auto-submit turns amber with a warning when switched on. */
+.prep-step { margin-top: 20px; }
+.prep-step[hidden] { display: none; }
+.prep-step-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.prep-step .prep-step-head h2 { font-size: 13px; font-weight: 700; margin: 0; } /* beats .detail-section h2 */
+.choice-card {
+  display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; cursor: pointer;
+  background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-md);
+  transition: border-color .15s, background-color .15s, box-shadow .15s;
+}
+.choice-card:hover { border-color: var(--border-strong); }
+.choice-card:focus-within { box-shadow: 0 0 0 3px var(--accent-light); border-color: var(--accent-border); }
+.choice-card:has(input:checked) { background: var(--accent-light); border-color: var(--accent-border); }
+.choice-card > input[type=checkbox] {
+  width: 18px; height: 18px; flex-shrink: 0; margin: 1px 0 0; accent-color: var(--accent-action); cursor: pointer;
+}
+.choice-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.choice-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.choice-text { font-size: 12.5px; color: var(--text-secondary); }
+.choice-fine { font-size: 11.5px; color: var(--text-muted); }
+.choice-alert { display: none; margin-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--warn-text); }
+.choice-alert::before { content: "⚠ "; }
+/* The auto-submit checkbox is shown as a switch; it is still a real checkbox for forms and screen readers. */
+.choice-risky > input[type=checkbox] {
+  appearance: none; -webkit-appearance: none; width: 40px; height: 22px; margin: 0; flex-shrink: 0; position: relative;
+  border-radius: 999px; background: var(--border-strong); transition: background-color .15s;
+}
+.choice-risky > input[type=checkbox]::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px #0003; transition: transform .15s;
+}
+.choice-risky > input[type=checkbox]:checked { background: var(--warn-text); }
+.choice-risky > input[type=checkbox]:checked::after { transform: translateX(18px); }
+.choice-risky:has(input:checked) { background: var(--warn-bg); border-color: var(--warn-border); }
+.choice-risky:has(input:checked) .choice-alert { display: block; }
+.choice-risky:focus-within { box-shadow: 0 0 0 3px var(--warn-bg); border-color: var(--warn-border); }
+.prep-step .errorlist { margin: 6px 0 0; }
+@media (prefers-reduced-motion: reduce) {
+  .choice-card, .choice-risky > input[type=checkbox], .choice-risky > input[type=checkbox]::after { transition: none; }
+}
+
 .form-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 .filing-summary { padding: 20px; position: sticky; top: calc(var(--topbar-h) + 16px); }

@@ -16,6 +16,7 @@
 !receipt_renderer/*.mjs
 !worker/read-cor.mjs
 !worker/render-cor.mjs
+!worker/render_cor.py
 !worker/Reset-Demo2026.ps1
 !worker/WorkerBridge.ps1
 !worker/Install-DashboardRecovery.ps1
