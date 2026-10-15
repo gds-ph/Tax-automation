@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}1601C payroll summary · {{ taxpayer.display_name }}{% endblock %}
+{% block content %}
+<div class="form-page">
+<a class="breadcrumb" href="{% url 'workorders:client-prepare' taxpayer.pk profile.pk %}">← 1601C preparation</a>
+<div class="page-heading"><div><p class="eyebrow">{{ taxpayer.display_name }} · Monthly compensation withholding</p><h1>1601C payroll summary</h1><p class="muted">Enter totals from your completed payroll. Review them before preparing the return.</p></div></div>
+<section class="panel detail-section"><dl class="details"><dt>Registered name</dt><dd>{{ taxpayer.registered_name }}</dd><dt>TIN</dt><dd>{{ taxpayer.tin1 }}-{{ taxpayer.tin2 }}-{{ taxpayer.tin3 }}-{{ taxpayer.tin4 }}</dd><dt>RDO</dt><dd>{{ taxpayer.rdo_code }}</dd></dl></section>
+{% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+{% if preview %}
+<section class="panel detail-section"><h2>Review · {{ form.cleaned_data.filing_month }}/{{ form.cleaned_data.filing_year }}</h2><p>Amounts in Philippine pesos. Original return · Private employer · ATC WW010.</p>
+{% include 'workorders/payroll_summary.html' with payroll=preview %}
+<dl class="details"><dt>21 · Total exempt compensation</dt><dd>{{ totals.exempt }}</dd><dt>22 · Taxable compensation</dt><dd>{{ totals.taxable }}</dd><dt>24 · Subject to withholding</dt><dd>{{ totals.subject }}</dd><dt>36 · Total amount due</dt><dd><strong>₱{{ totals.due }}</strong></dd></dl>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="queue"><input type="hidden" name="preview_token" value="{{ preview_token }}"><label class="choice-card"><input type="checkbox" name="reviewed" required><span>I reviewed these payroll totals and the filing period. Prepare a PDF for my approval.</span></label><div class="form-footer"><button class="button primary" type="submit">Queue payroll preparation →</button></div></form></section>
+{% endif %}
+<form method="post" class="panel detail-section" novalidate>{% csrf_token %}<input type="hidden" name="action" value="preview"><h2>{% if preview %}Change the entries{% else %}Monthly payroll totals{% endif %}</h2>
+<p class="muted">Enter exempt amounts already classified by payroll. Total compensation includes the exempt components below. Tax withheld is supplied by payroll; this screen does not calculate employee withholding.</p>
+{% if form.errors %}<div class="notice error" role="alert">Please correct the entries below.{{ form.non_field_errors }}</div>{% endif %}
+<div class="field-grid">{% for field in form %}{% if field.name != 'scope' %}{% include 'workorders/field.html' %}{% endif %}{% endfor %}</div>
+<p class="small muted">Positive compensation with zero withholding is supported. For no compensation, use the zero-filing option. Required attachments and adjustment schedules are outside this first version.</p>
+<label class="choice-card">{{ form.scope }}<span>{{ form.scope.label }}</span></label>{{ form.scope.errors }}
+<div class="form-footer"><button type="submit" class="button primary">Review payroll totals →</button></div></form>
+</div>
+{% endblock %}

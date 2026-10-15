@@ -1,0 +1,61 @@
+<style>
+.filing-paths { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:16px 0; }
+.prepare-options .choice-card { display:flex; gap:12px; padding:16px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); cursor:pointer; font-size:13px; line-height:1.5; }
+.prepare-options .choice-card input { flex-shrink:0; margin-top:3px; accent-color:var(--accent); }
+.filing-paths .choice-card { margin:0; align-items:flex-start; height:100%; }
+.filing-paths .choice-card:has(input:checked) { border-color:var(--accent); background:var(--accent-light); }
+.filing-paths .unavailable { opacity:.55; cursor:not-allowed; }
+.filing-paths strong,.filing-paths small { display:block; }
+.filing-paths small { margin-top:5px; color:var(--text-secondary); font-weight:400; line-height:1.5; }
+.prepare-options [hidden] { display:none!important; }
+.prepare-options fieldset { border:0; padding:0; margin:0; min-width:0; }
+.prepare-options legend { font-size:16px; font-weight:600; }
+@media(max-width:600px) { .filing-paths { grid-template-columns:1fr; } }
+</style>
+<div class="form-page prepare-options">
+<a class="breadcrumb" href="{% url 'workorders:client-detail' taxpayer.pk %}">← {{ taxpayer.display_name }} forms</a>
+<div class="page-heading"><div><p class="eyebrow">{{ taxpayer.display_name }}</p><h1>Prepare {{ profile.form_definition.form_code }}</h1><p class="muted">Choose how to prepare this {% if form.filing_month %}month’s{% else %}quarter’s{% endif %} return.</p></div></div>
+<section class="panel detail-section">
+<fieldset><legend>Filing type</legend><div class="filing-paths">
+<label class="choice-card"><input type="radio" name="filing_path" value="ZERO" checked><span><strong>Zero filing</strong><small>Confirm the zero-filing conditions below.</small></span></label>
+{% if profile.form_definition.form_code == '0619E' or profile.form_definition.form_code == '1601EQ' or profile.form_definition.form_code == '1601C' %}
+<label class="choice-card"><input type="radio" name="filing_path" value="DETAILS"><span><strong>{% if profile.form_definition.form_code == '1601C' %}With payroll compensation{% else %}With supplier withholding{% endif %}</strong><small>{% if profile.form_definition.form_code == '1601EQ' %}Quarterly worksheet · Prepare a PDF for review.{% elif profile.form_definition.form_code == '1601C' %}Enter monthly payroll totals.{% else %}Enter or import supplier transactions.{% endif %}</small></span></label>
+{% else %}<label class="choice-card unavailable"><input type="radio" name="filing_path" disabled><span><strong>Non-zero filing</strong><small>Not available yet.</small></span></label>{% endif %}
+</div></fieldset>
+</section>
+<section id="supplier-path" class="panel detail-section" hidden>
+{% if profile.form_definition.form_code == '0619E' %}
+<h2>Prepare from supplier transactions</h2><p class="muted">Enter or import transactions and review the monthly withholding total.</p>
+<div class="form-footer"><a class="button primary" href="{% url 'workorders:withholding-draft' taxpayer.pk %}">Continue to supplier worksheet →</a></div>
+{% elif profile.form_definition.form_code == '1601C' %}
+<h2>Prepare from payroll summary</h2><p class="muted">Enter monthly payroll totals, including compensation with no tax withheld.</p>
+<div class="form-footer"><a class="button primary" href="{% url 'workorders:payroll-prepare' taxpayer.pk profile.pk %}">Continue to payroll summary →</a></div>
+{% elif profile.form_definition.form_code == '1601EQ' %}
+<h2>Quarterly supplier worksheet</h2><p class="muted">Review all three months, remittance payments and penalties. Save the worksheet, then queue PAD preparation for PDF review.</p>
+<div class="form-footer"><a class="button primary" href="{% url 'workorders:quarterly-worksheet' taxpayer.pk profile.pk %}">Continue to quarterly worksheet →</a></div>
+{% endif %}
+</section>
+<div id="zero-path">
+<form method="post" class="panel detail-section preparation-form" novalidate>{% csrf_token %}{{ form.request_token }}<input type="hidden" name="filing_mode" value="ZERO">
+<fieldset id="zero-fields"><h2>Zero-filing details</h2>
+{% if form.errors %}<div class="notice error" role="alert">Please review the filing details.{{ form.non_field_errors }}{{ form.request_token.errors }}{{ form.filing_mode.errors }}</div>{% endif %}
+<div class="field-grid">{% include 'workorders/field.html' with field=form.filing_year %}{% if form.filing_month %}{% include 'workorders/field.html' with field=form.filing_month %}{% else %}{% include 'workorders/field.html' with field=form.filing_quarter %}{% endif %}{% if form.taxpayer_classification %}{% include 'workorders/field.html' with field=form.taxpayer_classification %}{% endif %}</div>
+<p class="small muted">Defaults to the last completed eligible {% if form.filing_month %}month{% else %}quarter{% endif %}. Choose an earlier period if needed.</p>
+<label class="choice-card">{{ form.zero_filing_approved }}<span>{{ form.zero_filing_approved.label }}</span></label>{{ form.zero_filing_approved.errors }}
+{% if form.auto_approve and profile.form_definition.form_code != '0619E' %}
+<section class="prep-step"><h2>After preparation <span class="small muted">· Optional</span></h2>
+<label class="choice-card">{{ form.auto_approve }}<span class="choice-body"><strong>Auto approve and submit</strong><span class="choice-text">I authorize submitting this client's return for the selected form and period after preparation and verification, without reviewing the PDF first. I confirm it has not already been submitted.</span></span></label>{{ form.auto_approve.errors }}</section>
+{% endif %}
+<div class="form-footer"><a class="button secondary" href="{% url 'workorders:client-detail' taxpayer.pk %}">Cancel</a><button class="button primary" type="submit">Queue zero-filing preparation →</button></div>
+</fieldset></form>
+<p class="small muted">Keep the VM worker running to prepare the return. The prepared PDF will be available for review.</p>
+</div>
+</div>
+<script>
+(() => {
+ const choices=document.querySelectorAll('input[name="filing_path"]');
+ function update(){const supplier=document.querySelector('input[name="filing_path"]:checked').value==='DETAILS';document.getElementById('supplier-path').hidden=!supplier;document.getElementById('zero-path').hidden=supplier;document.getElementById('zero-fields').disabled=supplier;}
+ choices.forEach(choice=>choice.addEventListener('change',update));update();
+ const auto=document.getElementById('id_auto_approve');const submit=document.querySelector('#zero-fields button[type=submit]');if(auto){const label=()=>{submit.textContent=auto.checked?'Queue & auto-submit →':'Queue zero-filing preparation →';};auto.addEventListener('change',label);label();}
+})();
+</script>

@@ -24,9 +24,10 @@ LIVE_KEY = 'SUBMIT_2551QV2018'
 MONTHLY_LIVE_KEY = 'SUBMIT_1601CV2018'
 EQ_LIVE_KEY = 'SUBMIT_1601EQ'
 F_LIVE_KEY = 'SUBMIT_0619F'
+E_LIVE_KEY = 'SUBMIT_0619E'
 VT_LIVE_KEY = 'SUBMIT_1600VT'
 VAT_LIVE_KEY = 'SUBMIT_2550QV2024'
-SUPPORTED_KEYS = {KEY, LIVE_KEY, MONTHLY_LIVE_KEY, EQ_LIVE_KEY, F_LIVE_KEY, VT_LIVE_KEY, VAT_LIVE_KEY}
+SUPPORTED_KEYS = {KEY, LIVE_KEY, MONTHLY_LIVE_KEY, EQ_LIVE_KEY, F_LIVE_KEY, E_LIVE_KEY, VT_LIVE_KEY, VAT_LIVE_KEY}
 SUCCESS = 'SUBMITTED_WAITING_FOR_CONFIRMATION'
 LIVE_RESULTS = {SUCCESS, 'SUBMISSION_UNCONFIRMED', 'BLOCKED_NOT_APPROVED', 'WORK_ORDER_VERIFICATION_FAILED', 'SAVED_RETURN_NOT_UNIQUE', 'SAVED_RETURN_ROW_NOT_FOUND', 'FAILED_SYSTEM'}
 RESULTS = {'APPROVED_READY_TO_SUBMIT', 'BLOCKED_NOT_APPROVED', 'WORK_ORDER_VERIFICATION_FAILED',
@@ -43,6 +44,10 @@ def automation_key(approval):
         if not approval.submission_enabled:
             raise WorkerError('unsupported_automation', '1600VT has no queued revalidation workflow.')
         return VT_LIVE_KEY
+    if number == '0619E':
+        if not approval.submission_enabled:
+            raise WorkerError('unsupported_automation', '0619E has no queued revalidation workflow.')
+        return E_LIVE_KEY
     if number == '0619F':
         if not approval.submission_enabled:
             raise WorkerError('unsupported_automation', '0619F has no queued revalidation workflow.')
@@ -79,7 +84,7 @@ def approve(*, actor, order_id, version, digest, comment='', submission_enabled=
         raise ValidationError('The filing changed. Reload and review the PDF again.')
     if submission_enabled and not order.live_submission_available:
         raise ValidationError('Live submission for this form is not enabled. Complete the worker integration first.')
-    if order.expected_form_number in {'1601Cv2018', '1601EQ', '0619F', '1600VTv2018', '2550Qv2024'} and not submission_enabled:
+    if order.expected_form_number in {'1601Cv2018', '1601EQ', '0619F', '0619E', '1600VTv2018', '2550Qv2024'} and not submission_enabled:
         raise ValidationError('Open-and-validate tests for this form run separately from the approval queue.')
     existing = Stage2Approval.objects.filter(work_order=order).first()
     if existing:

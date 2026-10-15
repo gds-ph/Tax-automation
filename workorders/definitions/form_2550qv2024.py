@@ -17,9 +17,12 @@ class Definition2550Q(Definition2551Q):
             raise ValidationError('2550Qv2024 automation supports calendar years ending in December only.')
 
     def validate_data(self, data, *, require_atc=False):
-        if data:
-            raise ValidationError({'form_data': '2550Q automation supports only an original, full-quarter, Micro zero return without tax relief, amounts, credits or adjustments.'})
-        return {}
+        if not isinstance(data, dict) or set(data) - {'taxpayer_classification'}:
+            raise ValidationError({'form_data': 'Unsupported 2550Q fields.'})
+        classification = data.get('taxpayer_classification', 'MICRO')
+        if classification not in ('MICRO', 'SMALL', 'MEDIUM', 'LARGE'):
+            raise ValidationError({'form_data': 'Choose a valid taxpayer classification.'})
+        return {'taxpayer_classification': classification} if data else {}
 
     def validate_zero(self, zero_filing):
         if zero_filing is not True:

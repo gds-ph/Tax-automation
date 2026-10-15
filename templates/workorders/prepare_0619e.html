@@ -1,0 +1,45 @@
+<style>
+.filing-paths { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:16px 0; }
+.prepare-0619e .choice-card { display:flex; gap:12px; padding:16px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); cursor:pointer; font-size:13px; line-height:1.5; }
+.prepare-0619e .choice-card input { flex-shrink:0; margin-top:3px; accent-color:var(--accent); }
+.filing-paths .choice-card { margin:0; align-items:flex-start; height:100%; }
+.filing-paths .choice-card:has(input:checked) { border-color:var(--accent); background:var(--accent-light); }
+.filing-paths strong,.filing-paths small { display:block; }
+.filing-paths small { margin-top:5px; color:var(--text-secondary); font-weight:400; line-height:1.5; }
+.prepare-0619e [hidden] { display:none!important; }
+.prepare-0619e fieldset { border:0; padding:0; margin:0; min-width:0; }
+.prepare-0619e legend { font-size:16px; font-weight:600; }
+@media(max-width:600px) { .filing-paths { grid-template-columns:1fr; } }
+</style>
+<div class="form-page prepare-0619e">
+<a class="breadcrumb" href="{% url 'workorders:client-detail' taxpayer.pk %}">← {{ taxpayer.display_name }} forms</a>
+<div class="page-heading"><div><p class="eyebrow">{{ taxpayer.display_name }}</p><h1>Prepare 0619E</h1><p class="muted">Choose how to prepare this month's return.</p></div></div>
+<section class="panel detail-section">
+<fieldset><legend>Filing type</legend><div class="filing-paths">
+<label class="choice-card"><input type="radio" name="filing_path" value="ZERO" checked><span><strong>Zero filing</strong><small>No expanded withholding tax to report.</small></span></label>
+<label class="choice-card"><input type="radio" name="filing_path" value="SUPPLIERS"><span><strong>With supplier withholding</strong><small>Enter or import supplier transactions.</small></span></label>
+</div></fieldset>
+</section>
+<section id="supplier-path" class="panel detail-section" hidden>
+<h2>Prepare from supplier transactions</h2><p class="muted">Choose the year and month in the worksheet, enter your transactions, and review the withholding total before queueing preparation.</p>
+<div class="form-footer"><a class="button primary" href="{% url 'workorders:withholding-draft' taxpayer.pk %}">Continue to supplier worksheet →</a></div>
+</section>
+<div id="zero-path">
+<form method="post" class="panel detail-section preparation-form" novalidate>{% csrf_token %}{{ form.request_token }}<input type="hidden" name="filing_mode" value="ZERO">
+<fieldset id="zero-fields"><h2>Zero-filing details</h2>
+{% if form.errors %}<div class="notice error" role="alert">Please review the filing details.{{ form.non_field_errors }}{{ form.request_token.errors }}{{ form.filing_mode.errors }}</div>{% endif %}
+<div class="field-grid">{% include 'workorders/field.html' with field=form.filing_year %}{% include 'workorders/field.html' with field=form.filing_month %}</div>
+<p class="small muted">Defaults to the last completed eligible month. Choose an earlier period if needed.</p>
+<label class="choice-card">{{ form.zero_filing_approved }}<span>{{ form.zero_filing_approved.label }}</span></label>{{ form.zero_filing_approved.errors }}
+<div class="form-footer"><a class="button secondary" href="{% url 'workorders:client-detail' taxpayer.pk %}">Cancel</a><button class="button primary" type="submit">Queue zero-filing preparation →</button></div>
+</fieldset></form>
+<p class="small muted">Keep the VM worker running to prepare the return. The prepared PDF will be available for review.</p>
+</div>
+</div>
+<script>
+(() => {
+ const choices=document.querySelectorAll('input[name="filing_path"]');
+ function update(){const supplier=document.querySelector('input[name="filing_path"]:checked').value==='SUPPLIERS';document.getElementById('supplier-path').hidden=!supplier;document.getElementById('zero-path').hidden=supplier;document.getElementById('zero-fields').disabled=supplier;}
+ choices.forEach(choice=>choice.addEventListener('change',update));update();
+})();
+</script>

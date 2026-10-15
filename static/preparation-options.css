@@ -1,0 +1,26 @@
+.prep-step { margin-top: 20px; }
+.prep-step[hidden] { display: none; }
+.prep-step-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.prep-step .prep-step-head h2 { font-size: 13px; font-weight: 700; margin: 0; } /* beats .detail-section h2 */
+.choice-card {
+  display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; cursor: pointer;
+  background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-md);
+  transition: border-color .15s, background-color .15s, box-shadow .15s;
+}
+.choice-card:hover { border-color: var(--border-strong); }
+.choice-card:focus-within { box-shadow: 0 0 0 3px var(--accent-light); border-color: var(--accent-border); }
+.choice-card:has(input:checked) { background: var(--accent-light); border-color: var(--accent-border); }
+.choice-card > input[type=checkbox] {
+  width: 18px; height: 18px; flex-shrink: 0; margin: 1px 0 0; accent-color: var(--accent-action); cursor: pointer;
+}
+.choice-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.choice-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.choice-text { font-size: 12.5px; color: var(--text-secondary); }
+.choice-fine { font-size: 12px; line-height: 1.6; color: var(--text-secondary); }
+.choice-alert { display: none; margin-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--warn-text); }
+.choice-alert::before { content: "⚠ "; }
+.prep-step .errorlist { margin: 8px 0 0; }
+
+.preparation-form .choice-card { padding: 16px; }
+.preparation-form .choice-title { line-height: 1.55; }
+.preparation-form .choice-body { gap: 7px; }

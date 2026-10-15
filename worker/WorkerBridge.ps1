@@ -1,4 +1,4 @@
-﻿# Windows PowerShell 5.1+. Runs inside the automation VM alongside PAD.
+# Windows PowerShell 5.1+. Runs inside the automation VM alongside PAD.
 # This bridge transfers tasks/results; it never launches PAD or submits a return.
 [CmdletBinding()]
 param(
@@ -26,7 +26,7 @@ $automationKeys = @('PREPARE_2551QV2018_ZERO')
 if ($config.PSObject.Properties.Name -contains 'PreparationAutomationKeys') {
     $automationKeys = @($config.PreparationAutomationKeys)
 }
-$allowedAutomationKeys = @('PREPARE_2551QV2018_ZERO','PREPARE_1601CV2018_ZERO','PREPARE_1601EQ_ZERO','PREPARE_0619F_ZERO','PREPARE_1600VT_ZERO','PREPARE_2550QV2024_ZERO')
+$allowedAutomationKeys = @('PREPARE_2551QV2018_ZERO','PREPARE_1601CV2018_ZERO','PREPARE_1601CV2018_PAYROLL','PREPARE_1601EQ_ZERO','PREPARE_1601EQ_SUPPLIERS','PREPARE_0619F_ZERO','PREPARE_0619E_ZERO','PREPARE_0619E_SUPPLIERS','PREPARE_1600VT_ZERO','PREPARE_2550QV2024_ZERO')
 if ($automationKeys.Count -eq 0 -or @($automationKeys | Where-Object { $_ -notin $allowedAutomationKeys }).Count -gt 0 -or @($automationKeys | Select-Object -Unique).Count -ne $automationKeys.Count) {
     throw 'Invalid configured automation keys.'
 }
@@ -50,11 +50,23 @@ function Invoke-WorkerApi([string]$Method, [string]$Route, $Body) {
     } catch {
         # Keep the original request/journal for retry. Never print bearer headers.
         $retryable = $false
+        $writeConflict = $false
         $failure = $_.Exception
         if ($failure -is [Net.WebException]) {
             if ($null -ne $failure.Response) {
                 $statusCode = [int]$failure.Response.StatusCode
                 $retryable = $statusCode -in @(408,429,500,502,503,504)
+                if ($statusCode -eq 409) {
+                    try {
+                        $errorBody = [string]$_.ErrorDetails.Message
+                        if (-not $errorBody) {
+                            $reader = New-Object IO.StreamReader($failure.Response.GetResponseStream())
+                            try { $errorBody = $reader.ReadToEnd() } finally { $reader.Dispose() }
+                        }
+                        $apiError = $errorBody | ConvertFrom-Json
+                        $writeConflict = $apiError.error -ceq 'write_conflict'
+                    } catch { $writeConflict = $false }
+                }
             } else {
                 $retryable = $failure.Status -in @(
                     [Net.WebExceptionStatus]::Timeout,
@@ -68,6 +80,7 @@ function Invoke-WorkerApi([string]$Method, [string]$Route, $Body) {
         }
         $safeError = [Exception]::new('Worker API request failed. Preserve the journal; check server status before retrying the same operation.')
         $safeError.Data['Retryable'] = $retryable
+        $safeError.Data['WriteConflict'] = $writeConflict
         throw $safeError
     }
 }
@@ -99,7 +112,7 @@ if ($Action -eq 'Poll') {
             return
         }
     }
-    if ($null -ne $journal -and $journal.Phase -eq 'Running' -and $null -eq $journal.Result) {
+    if ($null -ne $journal -and $journal.Phase -in @('Running','Publishing')) {
         $pending = $journal.Claim
         $pendingId = [guid]::Parse([string]$pending.AttemptId).ToString()
         if ([string]$pending.AutomationKey -notin $allowedAutomationKeys) { throw 'Unsupported pending preparation.' }
@@ -157,6 +170,43 @@ if ($Action -eq 'Start') {
     $renewal=Invoke-WorkerApi 'POST' $claim.RenewUrl @{ lease_token=$claim.LeaseToken }
     $claim.LeaseExpiresAt=$renewal.LeaseExpiresAt
     [IO.Directory]::CreateDirectory([string]$claim.Inputs.OutputFolder) | Out-Null
+    if ($claim.AutomationKey -eq 'PREPARE_2550QV2024_ZERO') {
+        $classification = [string]$claim.Inputs.TaxpayerClassification
+        if (-not $classification) { $classification = 'MICRO' }
+        $classes = @('MICRO','SMALL','MEDIUM','LARGE')
+        if ($classification -cnotin $classes) { throw 'Invalid 2550Q taxpayer classification.' }
+        @{ Classification=$classification; ControlId=('frm2550qv2024:taxPayerClassification' + (1 + [array]::IndexOf($classes, $classification))) } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $claim.Inputs.OutputFolder 'vat-classification.json') -Encoding UTF8
+    }
+
+    if ($claim.AutomationKey -eq 'PREPARE_1601CV2018_PAYROLL') {
+        if (Test-Path -LiteralPath $claim.ExpectedXmlPath) { throw 'A saved 1601C already exists for this period. Review it before preparation.' }
+        $payroll = $claim.Inputs.Payroll
+        if ($payroll.schema -cne '1601c-payroll-v1' -or $payroll.payroll_confirmed -ne $true) { throw 'Payroll review is missing.' }
+        $payroll | Add-Member -NotePropertyName Enabled -NotePropertyValue $true -Force
+        $payroll | Add-Member -NotePropertyName HasWithholding -NotePropertyValue ([decimal]$payroll.withheld -gt 0) -Force
+        [IO.File]::WriteAllText((Join-Path $claim.Inputs.OutputFolder 'payroll.json'), ($payroll | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
+    }
+    if ($claim.AutomationKey -eq 'PREPARE_0619E_SUPPLIERS') {
+        if (Test-Path -LiteralPath $claim.ExpectedXmlPath) { throw 'A saved 0619E already exists for this period. Review it before preparation.' }
+        if ($claim.Inputs.SupplierSchedule.schema -cne '0619e-suppliers-v1' -or $claim.Inputs.SupplierSchedule.schedule_confirmed -ne $true) { throw 'Supplier schedule review is missing.' }
+        $supplier = @{ Enabled=$true; Total=[string]$claim.Inputs.WithholdingTotal }
+        [IO.File]::WriteAllText((Join-Path $claim.Inputs.OutputFolder 'suppliers.json'), ($supplier | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
+    }
+    if ($claim.AutomationKey -eq 'PREPARE_1601EQ_SUPPLIERS') {
+        if (Test-Path -LiteralPath $claim.ExpectedXmlPath) { throw 'A saved 1601EQ exists for this period. Review it before preparation.' }
+        if ($claim.Inputs.QuarterlySchedule.schema -cne '1601eq-suppliers-v1' -or $claim.Inputs.QuarterlySchedule.schedule_confirmed -ne $true) { throw 'Quarterly review is missing.' }
+        $helperRoot = if ($PSScriptRoot) { $PSScriptRoot } else { 'C:\TaxAutomation' }
+        $map = Get-Content -LiteralPath (Join-Path $helperRoot '1601eq-atc-controls.json') -Raw | ConvertFrom-Json
+        $quarterly = $claim.Inputs.QuarterlyTotals
+        foreach ($group in $quarterly.groups) {
+            $index = $map.($group.atc)
+            if (-not $index) { throw 'Quarterly ATC is not supported by this installed PAD mapping.' }
+            $group | Add-Member -NotePropertyName ControlIndex -NotePropertyValue ([int]$index) -Force
+        }
+        $quarterly.groups = @($quarterly.groups | Sort-Object ControlIndex)
+        $quarterly | Add-Member -NotePropertyName Enabled -NotePropertyValue $true -Force
+        [IO.File]::WriteAllText((Join-Path $claim.Inputs.OutputFolder 'quarterly.json'), ($quarterly | ConvertTo-Json -Depth 8), (New-Object Text.UTF8Encoding($false)))
+    }
     $journal.Phase='Running'; Write-Journal $journal
     @{ Started=$true } | ConvertTo-Json
     return
@@ -183,6 +233,33 @@ if ($Action -eq 'Publish') {
         }
         if (-not (Test-Path -LiteralPath $outputs.PreparedPdfPath -PathType Leaf) -or -not (Test-Path -LiteralPath $outputs.SavedXmlPath -PathType Leaf)) {
             throw 'Both the VM-local XML and merged PDF must exist.'
+        }
+        if ($claim.AutomationKey -eq 'PREPARE_1601EQ_SUPPLIERS') {
+            $helperRoot = if ($PSScriptRoot) { $PSScriptRoot } else { 'C:\TaxAutomation' }
+            . ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $helperRoot 'Test-1601EQPreparedXml.ps1'))))
+            Assert-1601EQPreparedXml -Path $outputs.SavedXmlPath -Inputs $claim.Inputs
+        }
+        if ($claim.AutomationKey -in @('PREPARE_0619E_ZERO','PREPARE_0619E_SUPPLIERS')) {
+            $helperRoot = if ($PSScriptRoot) { $PSScriptRoot } else { 'C:\TaxAutomation' }
+            . ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $helperRoot 'Test-0619EPreparedXml.ps1'))))
+            Assert-0619EPreparedXml -Path $outputs.SavedXmlPath -Inputs $claim.Inputs
+        }
+        if ($claim.AutomationKey -eq 'PREPARE_1601CV2018_PAYROLL') {
+            $helperRoot = if ($PSScriptRoot) { $PSScriptRoot } else { 'C:\TaxAutomation' }
+            . ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $helperRoot 'Test-1601CPayrollXml.ps1'))))
+            Assert-1601CPayrollXml -Path $outputs.SavedXmlPath -Inputs $claim.Inputs
+        }
+        if ($claim.AutomationKey -eq 'PREPARE_2550QV2024_ZERO') {
+            $classification = [string]$claim.Inputs.TaxpayerClassification
+            if (-not $classification) { $classification = 'MICRO' }
+            $classes = @('MICRO','SMALL','MEDIUM','LARGE')
+            if ($classification -cnotin $classes) { throw 'Invalid 2550Q taxpayer classification.' }
+            $xmlText = [IO.File]::ReadAllText($outputs.SavedXmlPath)
+            for ($classIndex=0; $classIndex -lt 4; $classIndex++) {
+                $field = 'frm2550qv2024:taxPayerClassification' + ($classIndex + 1)
+                $expected = if ($classes[$classIndex] -ceq $classification) { 'true' } else { 'false' }
+                if (-not $xmlText.Contains($field + '=' + $expected + $field + '=')) { throw 'Saved 2550Q taxpayer classification does not match the reviewed selection.' }
+            }
         }
         $pdfInfo=Get-Item -LiteralPath $outputs.PreparedPdfPath
         if ($pdfInfo.Length -gt 25MB) { throw 'PDF exceeds 25 MiB.' }
@@ -212,22 +289,43 @@ if ($Action -eq 'Publish') {
     $resultXmlPath = [string]$outputs.SavedXmlPath
     # The supplied 2550Q flow retains expected paths on early failures.
     # Publish only the failure; never upload an existing return as this attempt.
-    if ($claim.AutomationKey -eq 'PREPARE_2550QV2024_ZERO' -and $outputs.PreparationStatusOutput -ne 'AWAITING_SUBMISSION_APPROVAL') {
+    if ($claim.AutomationKey -in @('PREPARE_2550QV2024_ZERO','PREPARE_0619E_ZERO','PREPARE_0619E_SUPPLIERS') -and $outputs.PreparationStatusOutput -ne 'AWAITING_SUBMISSION_APPROVAL') {
         if ($outputs.PreparationStatusOutput -in @('PREPARATION_BLOCKED_EXISTING_OUTPUT','PREPARATION_FAILED_INVALID_QUARTER')) {
             $resultStatus = 'FAILED_BUSINESS'
         }
         $resultPdfPath = ''; $resultXmlPath = ''
     }
-    $result=Invoke-WorkerApi 'POST' $claim.ResultUrl @{
+    $resultBody=@{
         lease_token=$claim.LeaseToken; PreparationStatusOutput=$resultStatus;
         PreparedPdfPath=$resultPdfPath; SavedXmlPath=$resultXmlPath
+    }
+    # Retry only an explicit concurrent-write response, using the same attempt
+    # and immutable result. Never rerun PAD or repeat a BIR submission.
+    for ($reportTry=0; $reportTry -lt 3; $reportTry++) {
+        try { $result=Invoke-WorkerApi 'POST' $claim.ResultUrl $resultBody; break }
+        catch {
+            if ($reportTry -ge 2 -or $_.Exception.Data['WriteConflict'] -ne $true) { throw }
+            Start-Sleep -Seconds ($reportTry + 1)
+        }
     }
     $journal.Phase='Completed';Write-Journal $journal
     $result | ConvertTo-Json -Depth 5
 }
 
 } catch {
-    if ($Action -ne 'Poll') { throw }
+    if ($Action -ne 'Poll') {
+        # Always return valid JSON to PAD; preserve the journal for recovery.
+        @{
+            Status='WORKER_OPERATION_FAILED'
+            Started=$false
+            Recorded=$false
+            RecoveryRequired=$true
+            Operation=$Action
+            Retryable=($_.Exception.Data['Retryable'] -eq $true)
+            Message='Worker operation failed. Preserve the journal and existing return files; inspect the failure before retrying this operation. Do not rerun preparation.'
+        } | ConvertTo-Json
+        return
+    }
     # PAD must receive JSON even when polling fails. Only transient API failures
     # may follow the existing HasTask=False -> Wait -> Next loop path.
     $canRetry = $_.Exception.Data['Retryable'] -eq $true

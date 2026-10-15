@@ -1,0 +1,30 @@
+.eq-page{max-width:1440px;margin:auto}.eq-period,.eq-import{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.eq-period .field-grid{flex:1}.eq-scroll{overflow-x:auto;margin:16px 0}.eq-table{width:100%;min-width:1040px}.eq-table td{padding:8px 5px}.eq-table input,.eq-table select,.eq-page .field-grid input,.eq-page .field-grid select{width:100%;box-sizing:border-box;border:1px solid var(--border,#ccd3df);border-radius:7px;background:var(--bg-surface);color:var(--text-primary);padding:9px}.eq-table input[data-rate]{background:var(--bg-hover);color:var(--text-muted);width:64px}.eq-table td:nth-child(2){min-width:200px}.eq-table td:nth-child(3){min-width:175px}.eq-table td:nth-child(4){min-width:95px}.eq-table td:nth-child(5){min-width:145px}.eq-table input[name$="-base"]{text-align:right}.eq-remittances{margin-top:24px!important}.eq-page .errorlist{color:#d43838;font-size:12px;padding-left:16px}.eq-table tr[hidden]{display:none}
+
+.eq-page input::placeholder{color:var(--text-muted);opacity:1}.eq-page select option{background:var(--bg-surface);color:var(--text-primary)}.eq-page input:focus-visible,.eq-page select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.eq-table input[data-rate]{cursor:default}
+
+/* Compact worksheet columns and consistent section spacing. */
+.eq-period{align-items:flex-end;justify-content:flex-start;padding:20px!important}
+.eq-period .field-grid{flex:0 1 460px;margin:0;gap:16px}
+.eq-period .field{margin:0}
+.eq-period>button{margin-bottom:0;min-height:36px}
+.eq-import{padding:12px 0 16px;gap:12px;border-bottom:1px solid var(--border)}
+.eq-import .small{flex:1;min-width:240px;line-height:1.5}
+.eq-import+.notice{margin-top:14px}
+.eq-table{table-layout:fixed;min-width:1060px;border-collapse:collapse}
+.eq-table .eq-col-month{width:80px}.eq-table .eq-col-payee{width:23%}.eq-table .eq-col-tin{width:18%}.eq-table .eq-col-atc{width:96px}.eq-table .eq-col-base{width:160px}.eq-table .eq-col-rate{width:76px}.eq-table .eq-col-remove{width:46px}
+.eq-table th{padding:10px 6px;white-space:nowrap}.eq-table td{padding:7px 5px;min-width:0!important;vertical-align:top}
+.eq-table input,.eq-table select{height:36px;padding:7px 9px;border-radius:6px;min-width:0;font-size:12px}
+.eq-table input[data-rate]{width:100%;text-align:right;font-variant-numeric:tabular-nums}
+.eq-table input[name$="-base"],.eq-payments input{font-variant-numeric:tabular-nums;text-align:right}
+.eq-table button[data-remove]{width:32px;height:36px;padding:0;border-color:transparent;color:var(--text-muted)}
+.eq-table button[data-remove]:hover{border-color:var(--border-strong);color:var(--text-primary);background:var(--bg-hover)}
+.eq-row-actions{display:flex;align-items:center;gap:12px;margin:12px 0 24px}
+.eq-payments{padding:20px 0 0;border-top:1px solid var(--border)}
+.eq-payments .eq-remittances{margin:0 0 8px!important}
+.eq-payments>p{margin-bottom:14px;max-width:850px;line-height:1.6}
+.eq-payments .field-grid{max-width:760px;gap:16px}
+.eq-footer{border-top:1px solid var(--border);padding-top:18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+@media(max-width:640px){.eq-period .field-grid{flex-basis:100%}.eq-period>button{width:100%}.eq-footer{align-items:stretch;flex-direction:column}.eq-row-actions{flex-wrap:wrap}}
+
+.eq-penalties{margin-top:20px}.eq-penalties .field-grid{grid-template-columns:repeat(4,minmax(0,1fr));max-width:none;gap:16px;align-items:end}.eq-penalties .field{margin-bottom:0}.eq-penalties .eq-penalty-total input{background:var(--bg-hover);color:var(--text-primary);font-weight:700}.eq-penalties label{display:block;margin-bottom:6px;font-size:12px;font-weight:600}
+@media(max-width:850px){.eq-penalties .field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:480px){.eq-penalties .field-grid{grid-template-columns:1fr}}

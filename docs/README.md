@@ -1,5 +1,14 @@
 # Project documentation
 
+## Current checkpoint: 15 October 2026
+
+See [validation results and known failures](release-2026-10-15.md). The full suite is not green.
+
+Start with the [complete system guide](current-system-guide.md) for the current form matrix, worksheet workflows, Excel paste, rounding, worker contracts, recovery, deployment and validation. The [PAD inventory](pad-release-inventory.md) identifies local flow exports and their checksums. These guides supersede the historical snapshot below.
+
+Recent detailed guides: [0619E suppliers](0619e-supplier-integration.md), [0619E zero](0619e-zero-integration.md), [0619E worksheet](0619e-worksheet.md), [1601C payroll](1601c-integration.md), [1601EQ nonzero](1601eq-nonzero.md), [1601C input recovery](1601c-input-recovery.md), [1601C saved-return selection](1601c-stage2-lookup-fix.md), [1601EQ saved-return selection](1601eq-stage2-selector-fix.md), [submission reporting recovery](stage2-reporting-recovery.md).
+
+
 Reviewed 2 October 2026 against the application source and selected read-only server checks. Dates are Asia/Manila. Live settings can change; an enabled route is not proof of a successful PAD or BIR execution.
 
 Cancellation instructions and admin-only installer access updated 6 October 2026; the operational snapshot below retains its original review date.

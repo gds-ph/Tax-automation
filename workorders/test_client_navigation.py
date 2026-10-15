@@ -236,8 +236,8 @@ class ClientNavigationTests(TestCase):
 
     def test_preparation_get_has_no_side_effects(self):
         response=self.client.get(self.url)
-        self.assertContains(response,'Queue preparation')
-        self.assertContains(response,'This queues preparation for the VM worker')
+        self.assertContains(response,'Queue zero-filing preparation')
+        self.assertContains(response,'Keep the VM worker running to prepare the return')
         self.assertEqual(WorkOrder.objects.count(),0)
         self.assertFalse(response.context['form']['zero_filing_approved'].value())
         self.assertNotIn('atc_code', response.context['form'].fields)

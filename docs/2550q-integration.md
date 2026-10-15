@@ -1,6 +1,9 @@
 # 2550Qv2024 preparation
 
-The supplied parent routes PREPARE_2550QV2024_ZERO to Stage1_Prepare_2550Q. This integration prepares only calendar-year, original, full-quarter, Micro zero returns without tax relief, amounts, credits or adjustments. The preparation page requires explicit confirmation of that scope. Fiscal years and non-zero returns are rejected.
+Updated 15 October 2026: taxpayer classification is selectable and carried into PAD; the saved XML is checked against that selection. The later full-screen Stage 2 export captures the application and success dialog rather than only message text. See the [current guide](current-system-guide.md) and [PAD inventory](pad-release-inventory.md). Original deployment/test notes below retain their dates.
+
+
+The supplied parent routes PREPARE_2550QV2024_ZERO to Stage1_Prepare_2550Q. This integration prepares only calendar-year, original, full-quarter, Micro, Small, Medium or Large zero returns without tax relief, amounts, credits or adjustments. The preparation page requires explicit confirmation of that scope. Fiscal years and non-zero returns are rejected.
 
 Existing COR 2550Q cards are upgraded in place. Historical work-order snapshots remain unchanged. Stage 2 uses SUBMIT_2550QV2024. Live approval and auto-approval require ENABLE_2550Q_SUBMISSION=1; it defaults off until the dynamic saved-return selector is confirmed.
 

@@ -1,0 +1,11 @@
+<section class="panel detail-section"><h2>Reviewed payroll amounts</h2><dl class="details">
+<dt>14 · Total compensation</dt><dd>₱{{ payroll.compensation }}</dd>
+<dt>15 · Minimum wages</dt><dd>{{ payroll.minimum_wage }}</dd>
+<dt>16 · MWE additional pay</dt><dd>{{ payroll.mwe_benefits }}</dd>
+<dt>17 · Exempt benefits</dt><dd>{{ payroll.benefits }}</dd>
+<dt>18 · De minimis</dt><dd>{{ payroll.de_minimis }}</dd>
+<dt>19 · Employee contributions</dt><dd>{{ payroll.contributions }}</dd>
+<dt>20 · Other exempt compensation</dt><dd>{{ payroll.other_exempt }} {{ payroll.other_exempt_description }}</dd>
+<dt>23 · Not subject to withholding</dt><dd>{{ payroll.below_threshold }}</dd>
+<dt>25 · Payroll tax withheld</dt><dd><strong>₱{{ payroll.withheld }}</strong></dd>
+</dl><p class="small muted">Original private-employer return. No adjustments, credits, relief, attachments or penalties. The prepared PDF requires approval before submission.</p></section>

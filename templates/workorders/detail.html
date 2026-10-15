@@ -4,8 +4,8 @@
 {% block content %}
 {% if order.client_id %}<a class="breadcrumb" href="{% url 'workorders:client-detail' order.client_id %}">← Back to {{ order.client_name }} filings</a>{% else %}<a class="breadcrumb" href="{% url 'workorders:filing-orders' filing.slug %}">← {{ order.form_code }} work orders</a>{% endif %}
 <div class="page-heading"><div><p class="eyebrow">{{ order.form_code }} · {{ order.period_label }}</p><h1>{{ order.client_name }}</h1><p class="muted mono work-id">{{ order.work_order_id }}</p></div>
-<div class="heading-actions">{% if perms.workorders.change_workorder and order.status == 'DRAFT' or perms.workorders.change_workorder and order.status == 'READY_TO_PREPARE' %}<a class="button secondary" href="{% url 'workorders:edit' order.pk %}">Edit work order</a>{% endif %}
-{% if can_cancel or can_archive %}<details class="action-menu" data-action-menu>
+<div class="heading-actions">{% if order.form_data.schema != "1601c-payroll-v1" and order.form_data.schema != "0619e-suppliers-v1" %}{% if perms.workorders.change_workorder and order.status == 'DRAFT' or perms.workorders.change_workorder and order.status == 'READY_TO_PREPARE' %}<a class="button secondary" href="{% url 'workorders:edit' order.pk %}">Edit work order</a>{% endif %}
+{% endif %}{% if can_cancel or can_archive %}<details class="action-menu" data-action-menu>
   <summary class="button secondary" aria-label="More actions">Actions <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
   <div class="action-menu-list">
     {% if can_archive %}<button type="button" data-open-dialog="archive-dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg><span>Archive filing<small>Hide from active lists</small></span></button>{% endif %}
@@ -45,6 +45,8 @@
 {% for value, label, url in tabs %}<a class="tab" href="{{ url }}"{% if value == tab %} aria-current="page"{% endif %}>{{ label }}{% if value == 'documents' and document_count %}<span class="tab-count">{{ document_count }}</span>{% endif %}</a>{% endfor %}
 </nav>
 
+{% if order.form_data.schema == '0619e-suppliers-v1' %}{% include 'workorders/supplier_summary.html' with schedule=order.form_data %}{% endif %}
+{% if order.form_data.schema == '1601c-payroll-v1' %}{% include 'workorders/payroll_summary.html' with payroll=order.form_data %}{% endif %}
 {% if tab == 'documents' %}
 {% if not can_view_pdf %}<div class="notice">Your account cannot open the protected filing documents.</div>{% endif %}
 <div class="document-list">
@@ -98,7 +100,7 @@
   {% else %}<p>No XML cleanup was queued for this older cancellation. Its VM files remain in place.</p>{% endif %}
   {% if request.user.is_superuser %}<p><a href="{% url 'workorders:cancellation-worker-update' %}">Download VM cancellation update</a>. Stop PAD, extract the ZIP, run Install-CancellationCleanup.cmd, then restart the parent worker.</p>{% endif %}
 {% elif order.status == 'DRAFT' %}
-  {% if not order.zero_filing_approved %}<p>Zero filing has not been confirmed yet.{% if perms.workorders.change_workorder %} Edit this work order and confirm it before marking it ready.{% endif %}</p>
+  {% if not order.zero_filing_approved and not order.form_data.payroll_confirmed and not order.form_data.schedule_confirmed %}<p>Zero filing has not been confirmed yet.{% if perms.workorders.change_workorder %} Edit this work order and confirm it before marking it ready.{% endif %}</p>
   {% else %}<p>This draft is ready to be queued for the VM worker.</p>{% endif %}
   {% if perms.workorders.change_workorder %}<form method="post" action="{% url 'workorders:ready' order.pk %}">{% csrf_token %}{{ transition_form }}<button class="button primary" type="submit">Mark ready to prepare →</button></form>{% endif %}
 {% elif order.status == 'READY_TO_PREPARE' %}
@@ -154,14 +156,6 @@
       {% endif %}
       <p class="small muted approval-meta">Approved by {{ approval.approved_by }} on {{ approval.approved_at|date:'d M Y, g:i A' }}. {% if approval.submission_enabled %}Submission was authorized for this return.{% else %}This earlier approval authorized revalidation only.{% endif %}</p>
     {% endif %}
-  {% elif order.expected_form_number == '2551Qv2018' and perms.automation_api.approve_stage2 and perms.workorders.view_prepared_pdf %}
-    <p>Review the prepared return, then approve this exact copy for VM revalidation. This does not authorize submission to BIR.</p>
-    <p><a class="button secondary" href="{% url 'workorders:prepared-pdf' order.pk %}?inline=1" target="_blank" rel="noopener">Review the prepared return →</a></p>
-    <form method="post" action="{% url 'workorders:approve-stage2' order.pk %}">{% csrf_token %}
-      <input type="hidden" name="version" value="{{ order.version }}"><input type="hidden" name="pdf_sha256" value="{{ order.prepared_pdf_sha256 }}">
-      <div class="confirmation-box"><input type="checkbox" id="authorize-revalidation" required><div><label for="authorize-revalidation">I reviewed this PDF and authorize VM revalidation. No BIR submission will be made.</label></div></div>
-      <div class="button-row"><button type="submit" class="button primary">Approve for revalidation</button></div>
-    </form>
   {% elif not order.live_submission_available %}
     <p>Live submission for this form is not enabled yet. The prepared files remain available in <a href="?tab=documents">Documents</a>.</p>
   {% elif perms.automation_api.approve_stage2 and perms.workorders.view_prepared_pdf %}
@@ -188,7 +182,7 @@
 </section>
 
 <div class="detail-grid">
-  <section class="panel detail-section"><h2>Filing details</h2><dl class="details"><dt>Form</dt><dd>{{ order.form_code }} · January 2018</dd><dt>Filing period</dt><dd>{{ order.period_label }}</dd><dt>Year basis</dt><dd>Calendar year · December</dd><dt>ATC</dt><dd>{{ order.atc_code|default:'—' }}</dd><dt>Zero filing confirmed</dt><dd>{{ order.zero_filing_approved|yesno:'Yes,No' }}</dd><dt>Return period</dt><dd class="mono">{{ order.expected_return_period }}</dd><dt>Created by</dt><dd>{{ order.created_by.get_username }}</dd><dt>Created</dt><dd>{{ order.created_at|date:'d M Y, g:i A' }}</dd></dl><div class="file-reference"><span class="small muted">Expected saved-return filename</span><p class="mono">{{ order.expected_xml_filename }}</p></div></section>
+  <section class="panel detail-section"><h2>Filing details</h2><dl class="details"><dt>Form</dt><dd>{{ order.form_code }} · January 2018</dd><dt>Filing period</dt><dd>{{ order.period_label }}</dd><dt>Year basis</dt><dd>Calendar year · December</dd><dt>ATC</dt><dd>{{ order.atc_code|default:'—' }}</dd>{% if order.form_data.schema == '1601c-payroll-v1' %}<dt>Payroll reviewed</dt><dd>{{ order.form_data.payroll_confirmed|yesno:'Yes,No' }}</dd>{% elif order.form_data.schema == '0619e-suppliers-v1' %}<dt>Supplier schedule reviewed</dt><dd>{{ order.form_data.schedule_confirmed|yesno:'Yes,No' }}</dd>{% else %}{% if order.expected_form_number == '2550Qv2024' %}<dt>Taxpayer classification</dt><dd>{{ order.form_data.taxpayer_classification|default:'MICRO'|title }}</dd>{% endif %}<dt>Zero filing confirmed</dt><dd>{{ order.zero_filing_approved|yesno:'Yes,No' }}</dd>{% endif %}<dt>Return period</dt><dd class="mono">{{ order.expected_return_period }}</dd><dt>Created by</dt><dd>{{ order.created_by.get_username }}</dd><dt>Created</dt><dd>{{ order.created_at|date:'d M Y, g:i A' }}</dd></dl><div class="file-reference"><span class="small muted">Expected saved-return filename</span><p class="mono">{{ order.expected_xml_filename }}</p></div></section>
   <section class="panel detail-section"><h2>Client details as prepared</h2><dl class="details"><dt>Registered name</dt><dd>{{ order.registered_name }}</dd><dt>Client reference</dt><dd>{{ order.legacy_client_reference|default:'—' }}</dd><dt>TIN</dt><dd class="mono">{{ order.tin1 }}-{{ order.tin2 }}-{{ order.tin3 }}-{{ order.tin4 }}</dd><dt>RDO code</dt><dd>{{ order.rdo_code }}</dd><dt>Address</dt><dd>{{ order.registered_address|linebreaksbr }}</dd><dt>ZIP code</dt><dd>{{ order.zip_code }}</dd><dt>Telephone</dt><dd>{{ order.telephone_number|default:'—' }}</dd><dt>Email</dt><dd>{{ order.email_address|default:'—' }}</dd><dt>Line of business</dt><dd>{{ order.line_of_business }}</dd></dl><p class="small muted">Recorded in this filing's snapshot. Editing the client later never changes these values.</p></section>
 </div>
 {% endif %}

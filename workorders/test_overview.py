@@ -65,3 +65,12 @@ class OverviewTests(TestCase):
         self.assertEqual(browser.get(self.url, {'export': 'csv'}).status_code, 403)
         anonymous = BrowserClient()
         self.assertEqual(anonymous.get(self.url).status_code, 302)
+
+    def test_0619e_visible_with_zero_filings_and_filter_supported(self):
+        response = self.client.get(self.url)
+        self.assertIn(('0619E', 0), response.context['by_form'])
+        self.assertContains(response, 'value="0619E"')
+        filtered = self.client.get(self.url, {'form': '0619E'})
+        self.assertEqual(filtered.context['form_code'], '0619E')
+        self.assertEqual(filtered.context['by_form'], [('0619E', 0)])
+        self.assertEqual(filtered.context['row_count'], 0)

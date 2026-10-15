@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}0619-E worksheet · {{ taxpayer.display_name }}{% endblock %}
+{% block content %}
+<style>
+.worksheet .worksheet-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:end; }
+.worksheet .worksheet-grid .field { margin:0; }
+.worksheet .worksheet-period { grid-template-columns:minmax(100px,1fr) minmax(140px,1fr) auto; max-width:650px; }
+.worksheet input:not([type=hidden]):not([type=checkbox]), .worksheet select { display:block; width:100%; min-width:0; max-width:100%; padding:9px 12px; min-height:38px; background:var(--bg-surface); color:var(--text-primary); border:1px solid var(--border-strong); border-radius:var(--radius-sm); font:inherit; font-size:13px; }
+.worksheet input:focus, .worksheet select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-light); }
+.worksheet input[type=file] { padding:6px; }
+.worksheet input[type=file]::file-selector-button { padding:7px 12px; margin-right:12px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); background:var(--bg-hover); color:var(--text-primary); cursor:pointer; font:inherit; }
+.worksheet .transaction-list { display:grid; gap:16px; margin-top:20px; }
+.worksheet .transaction { border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px; min-width:0; }
+.worksheet .transaction-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
+.worksheet .transaction-heading h3 { font-size:13px; margin:0; }
+.worksheet .remove-row { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text-muted); cursor:pointer; }
+.worksheet .transaction-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px 16px; }
+.worksheet .transaction-grid .field { margin:0; }
+.worksheet .transaction-grid input[type=number] { text-align:right; font-variant-numeric:tabular-nums; }
+.worksheet .help-text { margin-top:10px; }
+.worksheet .worksheet-summary { display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; align-items:center; }
+.worksheet .worksheet-total { font-size:24px; font-weight:650; color:var(--text-primary); margin:6px 0; }
+@media(max-width:640px) { .worksheet .worksheet-grid,.worksheet .worksheet-period,.worksheet .transaction-grid { grid-template-columns:minmax(0,1fr); } .worksheet .worksheet-period .button { width:100%; } }
+
+.worksheet .transaction-list { gap:0; margin-top:16px; border-top:1px solid var(--border); }
+.worksheet .transaction { border:0; border-bottom:1px solid var(--border); border-radius:0; padding:14px 0 18px; }
+.worksheet .transaction[hidden], .worksheet [hidden] { display:none!important; }
+.worksheet .transaction-heading { margin-bottom:8px; }
+.worksheet .transaction-grid { grid-template-columns:minmax(0,2.1fr) minmax(0,1.65fr) minmax(90px,.85fr) minmax(110px,1.1fr) minmax(0,.65fr) minmax(0,1.65fr); gap:10px; }
+@media(max-width:640px) { .worksheet .transaction-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+.worksheet .transaction input:not([type=checkbox]) { padding:7px 10px; min-height:34px; }
+.worksheet .delete-checkbox { display:none; }
+.worksheet .remove-row { border:0; background:transparent; color:var(--text-muted); font-size:22px; width:30px; height:30px; justify-content:center; border-radius:var(--radius-sm); }
+.worksheet .remove-row:hover { background:var(--danger-bg); color:var(--danger); }
+.worksheet .transaction-toolbar { display:flex; align-items:center; gap:14px; margin-top:18px; }
+.worksheet .removed-message { color:var(--text-muted); font-size:13px; display:flex; justify-content:space-between; align-items:center; }
+.worksheet .worksheet-import { margin-bottom:16px; }
+.worksheet .worksheet-import summary { font-weight:600; cursor:pointer; }
+.worksheet .worksheet-import summary span { font-weight:400; margin-left:12px; }
+.worksheet .worksheet-import[open] summary { margin-bottom:16px; }
+.worksheet .amount { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.worksheet .atc-badge { display:inline-block; padding:4px 8px; background:var(--bg-hover); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:12px; font-weight:600; white-space:nowrap; }
+.worksheet .withholding-total { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 18px; margin:18px 0; background:var(--bg-hover); border:1px solid var(--border); border-radius:var(--radius-sm); }
+.worksheet .withholding-total span { color:var(--text-secondary); font-size:13px; }
+.worksheet .withholding-total small { display:block; margin-top:4px; color:var(--text-muted); }
+.worksheet .withholding-total strong { font-size:24px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.worksheet .table-scroll { border:1px solid var(--border); border-radius:var(--radius-sm); margin-top:18px; }
+.worksheet .table-scroll table { margin:0; }
+.worksheet .table-scroll td { vertical-align:middle; }
+
+/* Compact editable schedule; retain per-field labels for narrow screens and assistive technology. */
+.worksheet .transaction-list { border:1px solid var(--border); border-radius:var(--radius-sm); gap:0; }
+.worksheet .transaction-columns { display:grid; grid-template-columns:minmax(0,2.1fr) minmax(0,1.65fr) minmax(90px,.85fr) minmax(110px,1.1fr) minmax(0,.65fr) minmax(0,1.65fr); gap:10px; padding:10px 48px 10px 12px; background:var(--bg-hover); border-radius:var(--radius-sm) var(--radius-sm) 0 0; color:var(--text-muted); font-size:11px; font-weight:600; }
+.worksheet .transaction { position:relative; padding:9px 48px 9px 12px; }
+.worksheet .transaction:last-child { border-bottom:0; }
+.worksheet .transaction-heading { margin:0; }
+.worksheet .transaction-heading h3 { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+.worksheet .transaction .remove-row { position:absolute; right:9px; top:11px; }
+.worksheet .worksheet-transactions .form-footer { margin-top:16px; padding-top:0; }
+@media(min-width:641px) {
+ .worksheet .transaction-grid .field > label { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+}
+@media(max-width:640px) {
+ .worksheet .transaction-columns { display:none; }
+ .worksheet .transaction { padding:12px 48px 12px 12px; }
+}
+</style>
+<div class="worksheet">
+<a class="breadcrumb" href="{% url 'workorders:client-detail' taxpayer.pk %}">← {{ taxpayer.display_name }}</a>
+<div class="page-heading"><div><p class="eyebrow">{{ taxpayer.display_name }}</p><h1>0619-E monthly worksheet</h1><p class="muted">Original return · Expanded withholding · Draft preparation</p></div></div>
+<div class="notice">Enter supplier transactions, check the calculated withholding, and save a reviewed draft. Then review the summary to queue preparation. Submission requires a separate PDF approval.</div>
+{% if error %}<div class="notice" role="alert">{{ error }}</div>{% endif %}
+{% if preview %}
+<section class="panel detail-section"><h2>Review before saving</h2><p>{{ period.cleaned_data.month }}/{{ period.cleaned_data.year }} · {{ preview|length }} transactions</p>
+<p>This will replace the month's saved transaction list. Earlier saved revisions are retained. Check the client, period, ATCs, rates and source invoices. Excel formula results are cached values; recalculate and save in Excel before importing.</p>
+<div class="table-scroll"><table><thead><tr><th>Payee</th><th>TIN</th><th>ATC</th><th class="amount">Tax base (₱)</th><th class="amount">Rate (%)</th><th class="amount">Withholding (₱)</th><th>Reference</th></tr></thead><tbody>
+{% for row in preview %}<tr><td>{{ row.payee }}</td><td>{{ row.tin }}</td><td><span class="atc-badge">{{ row.atc }}</span></td><td class="amount">{{ row.base|floatformat:"2g" }}</td><td class="amount">{{ row.rate }}</td><td class="amount">{{ row.tax|floatformat:"2g" }}</td><td>{{ row.reference }}</td></tr>{% endfor %}
+</tbody></table></div><div class="withholding-total"><span>Total withholding</span><strong>₱{{ preview_total|floatformat:"2g" }}</strong></div>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="save"><input type="hidden" name="year" value="{{ period.cleaned_data.year }}"><input type="hidden" name="month" value="{{ period.cleaned_data.month }}"><input type="hidden" name="preview_token" value="{{ preview_token }}">
+<label class="choice-card"><input type="checkbox" name="reviewed" required><span>I reviewed the transactions, period, ATCs and rates for this client.</span></label>
+<div class="form-footer"><button class="button primary">Save reviewed draft</button> <a class="button secondary" href="?year={{ period.cleaned_data.year }}&amp;month={{ period.cleaned_data.month }}">Cancel preview</a></div></form></section>
+{% else %}
+<section class="panel detail-section"><h2>Reporting period</h2><form method="get"><div class="worksheet-grid worksheet-period">{% for field in period %}{% include 'workorders/field.html' %}{% endfor %}<button class="button secondary">Load month</button></div>{{ period.non_field_errors }}</form><p class="small muted">0619-E covers the first two months of each calendar quarter. March, June, September and December are handled in the quarterly workflow.</p></section>
+{% if period.is_valid %}
+{% if draft %}<section class="panel detail-section"><h2>Saved draft · Revision {{ draft.version }}</h2><div class="withholding-total"><span>Total withholding <small>{{ draft.rows|length }} transactions</small></span><strong>₱{{ draft.total|floatformat:"2g" }}</strong></div><p class="muted">This amount is not a payment record or evidence of filing.</p>{% if can_edit %}<a class="button primary" href="{% url 'workorders:supplier-prepare' taxpayer.pk draft.pk %}">Review and prepare 0619E →</a>{% endif %}</section>{% endif %}
+{% if can_edit %}
+<section class="panel detail-section worksheet-import" aria-labelledby="excel-import-heading">
+<div class="worksheet-summary"><div><h2 id="excel-import-heading">Import supplier transactions</h2><p class="muted">Download the template, fill out one month's transactions, then upload it here.</p></div><a class="button secondary" href="{% url 'workorders:withholding-template' %}" download>&darr; Download Excel template</a></div>
+<ol class="small"><li><strong>Download and fill out.</strong> Keep the column headings and the <strong>Transactions</strong> sheet name. Enter one supplier transaction per row and rates as percentages, such as <strong>2%</strong>.</li><li><strong>Upload for the selected month.</strong> Choose your completed workbook below. If you fill in Year and Month, both must match the reporting period above.</li><li><strong>Preview and save.</strong> Review the calculated withholding, then save the reviewed draft.</li></ol>
+<p class="small muted">Excel (.xlsx) &middot; Maximum 500 transactions / 5 MB. Import replaces this month's transaction list only after you review and save it.</p>
+<form method="post" enctype="multipart/form-data">{% csrf_token %}<input type="hidden" name="action" value="import"><input type="hidden" name="year" value="{{ period.cleaned_data.year }}"><input type="hidden" name="month" value="{{ period.cleaned_data.month }}">
+<div class="worksheet-grid"><div class="field"><label for="worksheet-workbook">Excel workbook <span class="required">*</span></label><input id="worksheet-workbook" type="file" name="workbook" accept=".xlsx" required></div><div class="field"><label for="worksheet-sheet">Sheet name <span class="required">*</span></label><input id="worksheet-sheet" class="input" name="sheet" value="Transactions" maxlength="100" required></div></div><div class="form-footer"><button class="button secondary">Preview import</button></div></form></section>
+{% if manual_allowed %}<section class="panel detail-section worksheet-transactions"><h2>Supplier transactions</h2><p class="muted">Search ATCs by code or description. The selected ATC sets the read-only rate. Check that the income category and conditions apply to your transaction and reporting period.</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="preview"><input type="hidden" name="year" value="{{ period.cleaned_data.year }}"><input type="hidden" name="month" value="{{ period.cleaned_data.month }}"><input type="hidden" name="version" value="{{ draft.version|default:0 }}">
+{{ row_forms.management_form }}{{ row_forms.non_form_errors }}
+<p class="small muted"><strong>Paste from Excel:</strong> copy a column into its matching field, or copy all 7 columns from Registered Name through Particulars and paste into Supplier / payee. Exclude headers and totals. Rates and withholding are calculated by the app.</p><p id="supplier-paste-status" class="notice" role="status" hidden></p>
+<div class="transaction-list" id="transaction-list">
+<div class="transaction-columns" aria-hidden="true"><span>SUPPLIER / PAYEE</span><span>TIN</span><span>ATC</span><span class="amount">TAX BASE (&#8369;)</span><span class="amount">RATE (%)</span><span>REFERENCE</span></div>
+{% for row in row_forms %}{% include 'workorders/withholding_row.html' %}{% endfor %}
+</div><div class="transaction-toolbar"><button class="button secondary" type="button" id="add-transaction">+ Add transaction</button><span class="small muted" id="transaction-count" aria-live="polite"></span></div><template id="transaction-template">{% include 'workorders/withholding_row.html' with row=row_forms.empty_form %}</template><p class="small muted">Up to 100 transactions. For larger batches, import Excel.</p><div class="form-footer"><button class="button primary">Preview calculations →</button></div></form></section>{% else %}<p class="notice">This draft has more than 100 transactions. Use Excel import to replace it.</p>{% endif %}
+{% elif draft %}<div class="table-scroll"><table><thead><tr><th>Payee</th><th>TIN</th><th>ATC</th><th>Base</th><th>Rate (%)</th><th>Tax</th></tr></thead><tbody>{% for row in draft.rows %}<tr><td>{{ row.payee }}</td><td>{{ row.tin }}</td><td><span class="atc-badge">{{ row.atc }}</span></td><td class="amount">{{ row.base|floatformat:"2g" }}</td><td class="amount">{{ row.rate }}</td><td class="amount">{{ row.tax|floatformat:"2g" }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if revisions %}<section class="panel detail-section"><h2>Saved revisions</h2><table><thead><tr><th>Revision</th><th>Saved by</th><th>When</th><th class="amount">Total</th></tr></thead><tbody>{% for revision in revisions %}<tr><td>{{ revision.version }}</td><td>{{ revision.actor.get_username }}</td><td>{{ revision.created_at }}</td><td class="amount">₱{{ revision.total|floatformat:"2g" }}</td></tr>{% endfor %}</tbody></table></section>{% endif %}
+{% endif %}{% endif %}
+</div>
+{{ atc_entries|json_script:"atc-catalog" }}
+{% include "workorders/withholding_atc.html" %}
+<script src="{% static 'quarterly-excel-paste.js' %}"></script>
+<script>
+(() => {
+ const list=document.getElementById('transaction-list'); if(!list)return;
+ const add=document.getElementById('add-transaction'), total=document.getElementById('id_rows-TOTAL_FORMS');
+ const count=document.getElementById('transaction-count');
+ const rows=()=>Array.from(list.querySelectorAll('[data-transaction]'));
+ const deleted=r=>r.querySelector('input[name$="-DELETE"]');
+ const blank=r=>!Array.from(r.querySelectorAll('[data-fields] input')).some(i=>i.value.trim());
+ function formatBase(input){
+  const raw=input.value.replace(/,/g,'').trim();
+  if(!/^\d+(\.\d{0,2})?$/.test(raw))return;
+  const [whole,fraction='']=raw.split('.');
+  input.value=whole.replace(/^0+(?=\d)/,'').replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+fraction.padEnd(2,'0');
+ }
+ function initBases(){list.querySelectorAll('input[name$="-base"]').forEach(input=>{if(input.dataset.money)return;input.type='text';input.inputMode='decimal';input.dataset.money='true';input.style.textAlign='right';formatBase(input);});}
+ list.addEventListener('focusin',e=>{if(e.target.matches('input[data-money]'))e.target.value=e.target.value.replace(/,/g,'');});
+ list.addEventListener('focusout',e=>{if(e.target.matches('input[data-money]'))formatBase(e.target);});
+ list.closest('form').addEventListener('submit',()=>{list.querySelectorAll('input[data-money]').forEach(input=>{input.value=input.value.replace(/,/g,'');});});
+ function update(){initBases();window.initWorksheetAtcs();let n=0; rows().forEach(r=>{if(!r.hidden&&!deleted(r).checked)r.querySelector('[data-row-title]').textContent='Transaction '+(++n);});count.textContent=n+' transaction'+(n===1?'':'s');add.disabled=Number(total.value)>=100&&!rows().some(r=>r.hidden);}
+ rows().forEach(r=>{if(blank(r)&&!r.querySelector('.field-errors,.errorlist'))r.hidden=true;if(deleted(r).checked){r.querySelector('[data-fields]').hidden=true;r.querySelector('.transaction-heading').hidden=true;r.querySelector('.removed-message').hidden=false;}});
+ add.addEventListener('click',()=>{let r=rows().find(r=>r.hidden);if(!r){let index=Number(total.value);if(index>=100)return;const t=document.createElement('template');t.innerHTML=document.getElementById('transaction-template').innerHTML.replaceAll('__prefix__',String(index));list.append(t.content);total.value=index+1;r=rows().at(-1);}r.hidden=false;deleted(r).checked=false;update();r.querySelector('[data-fields] input').focus();});
+ list.addEventListener('click',e=>{const remove=e.target.closest('[data-remove]'),undo=e.target.closest('[data-undo]');if(!remove&&!undo)return;const r=e.target.closest('[data-transaction]');deleted(r).checked=!!remove;r.querySelector('[data-fields]').hidden=!!remove;r.querySelector('.transaction-heading').hidden=!!remove;r.querySelector('.removed-message').hidden=!remove;update();if(undo)r.querySelector('[data-fields] input').focus();});
+ window.supplierPasteRows={rows,deleted,update,formatBase,list,total};
+ update();
+})();
+</script>
+
+<script src="{% static 'supplier-excel-paste.js' %}?v=20261014" defer></script>
+{% endblock %}

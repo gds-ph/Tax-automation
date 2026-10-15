@@ -30,9 +30,9 @@ class WorkerError(Exception):
 def allowed_pdf_page_counts(order):
     """Return the physical page counts accepted for this form's prepared PDF."""
     form_number = order.current_snapshot.data['form']['expected_form_number']
-    if form_number in {'1601EQ', '0619F', '1600VTv2018'}:
+    if form_number in {'1601EQ', '0619F', '0619E', '1600VTv2018'}:
         return {1}
-    if form_number == '1601Cv2018':
+    if form_number in {'1601Cv2018', '2550Qv2024'}:
         # The Windows print path can split the form's second logical page into
         # two physical pages; both 2-page and 3-page outputs are valid.
         return {2, 3}
@@ -68,6 +68,7 @@ def payload(attempt):
         name = ''.join(inputs[key] for key in ('TIN1','TIN2','TIN3','TIN4'))+'-'+inputs['ExpectedFormNumber']+'-'+period
         pdf = f"{inputs['ClientNameSafe']}_{inputs['FormCode']}_{inputs['FilingYear']}_{inputs['FilingMonth']}_COMPLETE.pdf"
     if form['expected_form_number'] == '2550Qv2024':
+        inputs['TaxpayerClassification'] = filing['form_data'].get('taxpayer_classification', 'MICRO')
         inputs['FormCode'] = '2550Qv2024'
         inputs['FilingMonth'] = ''
         pdf = f"{inputs['ClientNameSafe']}_2550Qv2024_{inputs['FilingYear']}_Q{inputs['FilingQuarter']}_COMPLETE.pdf"
@@ -77,9 +78,22 @@ def payload(attempt):
         inputs['FilingMonth'] = ''
         period = inputs['FilingYear'] + 'Q' + inputs['FilingQuarter']
         name = ''.join(inputs[key] for key in ('TIN1','TIN2','TIN3','TIN4')) + '-1601EQ-' + period
+    if form['expected_form_number'] == '1601Cv2018' and not filing['zero_filing']:
+        from workorders.payroll_1601c import normalize, totals
+        inputs['Payroll'] = normalize(filing['form_data'])
+        inputs['PayrollTotals'] = totals(inputs['Payroll'])
+    if form['expected_form_number'] == '0619E' and not filing['zero_filing']:
+        from workorders.supplier_0619e import normalize, withholding
+        inputs['SupplierSchedule'] = normalize(filing['form_data'])
+        inputs['WithholdingTotal'] = withholding(inputs['SupplierSchedule'])
+    if form['expected_form_number'] == '1601EQ' and not filing['zero_filing']:
+        from workorders.quarterly_1601eq import normalize, totals
+        inputs['QuarterlySchedule'] = normalize(filing['form_data'])
+        inputs['QuarterlyTotals'] = totals(inputs['QuarterlySchedule'])
+    from workorders.payroll_1601c import preparation_key
     prefix=f'/api/agent/preparation/{attempt.pk}'
     return {'AttemptId':str(attempt.pk), 'WorkOrderId':order.work_order_id, 'State':attempt.state, 'Status':order.status,
-        'AutomationKey':form['automation_key'], 'LeaseToken':str(attempt.lease_token), 'LeaseExpiresAt':attempt.lease_expires_at.isoformat(),
+        'AutomationKey':preparation_key(data), 'LeaseToken':str(attempt.lease_token), 'LeaseExpiresAt':attempt.lease_expires_at.isoformat(),
         'SnapshotSha256':attempt.snapshot.sha256, 'Inputs':inputs, 'ExpectedReturnPeriod':period,
         'ExpectedSavedReturnName':name, 'ExpectedXmlPath':ntpath.join(VM_XML_ROOT,name+'.xml'),
         'ExpectedPdfPath':ntpath.join(inputs['OutputFolder'],pdf),
@@ -109,7 +123,7 @@ def claim(*, agent, request_id, automation_keys):
     _active(agent)
     from .cancellation import lock_execution, cleanup_pending
     lock_execution()
-    if not valid_automation_keys(automation_keys, {'PREPARE_2551QV2018_ZERO', 'PREPARE_1601CV2018_ZERO', 'PREPARE_1601EQ_ZERO', 'PREPARE_0619F_ZERO', 'PREPARE_1600VT_ZERO', 'PREPARE_2550QV2024_ZERO'}):
+    if not valid_automation_keys(automation_keys, {'PREPARE_2551QV2018_ZERO', 'PREPARE_1601CV2018_ZERO', 'PREPARE_1601CV2018_PAYROLL', 'PREPARE_1601EQ_ZERO', 'PREPARE_1601EQ_SUPPLIERS', 'PREPARE_0619F_ZERO', 'PREPARE_0619E_ZERO', 'PREPARE_0619E_SUPPLIERS', 'PREPARE_1600VT_ZERO', 'PREPARE_2550QV2024_ZERO'}):
         raise WorkerError('unsupported_automation', 'Advertise supported preparation automation keys.', 400)
     existing=PreparationAttempt.objects.select_related('work_order','snapshot').filter(pk=request_id).first()
     if existing:
@@ -117,7 +131,8 @@ def claim(*, agent, request_id, automation_keys):
             raise WorkerError('wrong_stage', 'This request belongs to Stage 2.')
         if existing.agent_id != agent.pk:
             raise WorkerError('request_conflict','This request ID belongs to another worker.')
-        if existing.snapshot.data['form']['automation_key'] not in automation_keys:
+        from workorders.payroll_1601c import preparation_key
+        if preparation_key(existing.snapshot.data) not in automation_keys:
             raise WorkerError('unsupported_automation', 'Worker no longer advertises this form.')
         if existing.state == 'RUNNING' and existing.lease_expires_at <= timezone.now():
             raise WorkerError('lease_expired','The lease expired. Stop and request operator review; do not rerun the desktop flow.')
@@ -347,6 +362,9 @@ def abandon(*,actor,attempt_id,expected_version,confirmed_stopped):
     return order
 
 
+from workorders.payroll_1601c import preparation_key as payload_key
+
+
 def preparation_recovery(*, agent, attempt_id, lease_token, work_order_id, automation_key):
     """Read-only permission to retire one journal after explicit operator release."""
     _active(agent)
@@ -356,7 +374,7 @@ def preparation_recovery(*, agent, attempt_id, lease_token, work_order_id, autom
         raise WorkerError('invalid_attempt', 'The journal does not match this worker attempt.', 403)
     if (hasattr(attempt, 'stage2_approval') or
             work_order_id != attempt.work_order.work_order_id or
-            automation_key != attempt.snapshot.data['form']['automation_key'] or
+            automation_key != payload_key(attempt.snapshot.data) or
             not automation_key.startswith('PREPARE_')):
         raise WorkerError('wrong_stage', 'Only the matching preparation journal can be recovered.', 409)
     released = (attempt.state == 'ABANDONED' and attempt.execution_slot is None and

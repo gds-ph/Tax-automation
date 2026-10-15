@@ -4,8 +4,15 @@ from . import views, client_views, demo_reset, directory_views, cor_views
 
 app_name = "workorders"
 from . import task_notices, sample_form
+from . import withholding_views, payroll_views, supplier_views, quarterly_views, quarterly_prepare
 
 urlpatterns = [
+    path('clients/<uuid:pk>/quarterly-drafts/<uuid:draft_pk>/prepare/', quarterly_prepare.prepare, name='quarterly-prepare'),
+    path('clients/<uuid:pk>/filings/<uuid:profile_pk>/quarterly-worksheet/', quarterly_views.worksheet, name='quarterly-worksheet'),
+    path('clients/<uuid:pk>/0619e/<uuid:draft_pk>/prepare/', supplier_views.prepare, name='supplier-prepare'),
+    path('clients/<uuid:pk>/filings/<uuid:profile_pk>/payroll/', payroll_views.prepare, name='payroll-prepare'),
+    path('clients/<uuid:pk>/0619e/', withholding_views.draft, name='withholding-draft'),
+    path('0619e/template/', withholding_views.template, name='withholding-template'),
     path('worker/cancellation-update/', views.cancellation_worker_update, name='cancellation-worker-update'),
     path('work-orders/<uuid:pk>/cancel/', views.work_order_cancel, name='cancel'),
     path('work-orders/<uuid:pk>/retry-submission/', views.retry_submission, name='retry-submission'),

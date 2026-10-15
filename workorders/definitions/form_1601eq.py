@@ -1,4 +1,4 @@
-"""Private-agent, non-amended 1601EQ zero-return PAD contract."""
+"""Private-agent original 1601EQ PAD contract."""
 from dataclasses import dataclass
 from django.core.exceptions import ValidationError
 from .form_2551qv2018 import Definition2551Q
@@ -18,15 +18,18 @@ class Definition1601EQ(Definition2551Q):
             raise ValidationError('1601EQ automation currently supports calendar years ending in December only.')
 
     def validate_data(self, data, *, require_atc=False):
+        if isinstance(data, dict) and data.get('schema') == '1601eq-suppliers-v1':
+            from ..quarterly_1601eq import normalize
+            return normalize(data)
         if data:
-            raise ValidationError({'form_data': '1601EQ currently supports only non-amended private-agent returns with no withholding, remittances, credits, penalties or attachments.'})
+            raise ValidationError({'form_data': 'Use a reviewed quarterly supplier worksheet for non-zero 1601EQ preparation.'})
         return {}
 
     def return_period(self, order):
         return f'{order.filing_year}Q{order.filing_quarter}'
 
     def validate_zero(self, zero_filing):
-        if zero_filing is not True:
-            raise ValidationError({'zero_filing': 'Only zero-filing 1601EQ preparation is implemented.'})
+        if type(zero_filing) is not bool:
+            raise ValidationError({'zero_filing': 'Choose a valid 1601EQ filing mode.'})
 
 DEFINITION = Definition1601EQ()

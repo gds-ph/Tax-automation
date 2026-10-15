@@ -10,6 +10,8 @@ from .models import AutoSubmissionConsent
 def request_auto_approval(*, actor, order):
     require_permission(actor, 'automation_api.approve_stage2')
     require_permission(actor, 'workorders.view_prepared_pdf')
+    if not order.zero_filing:
+        raise ValidationError('Non-zero returns require manual review of the prepared PDF.')
     if not order.live_submission_available:
         raise ValidationError('Live submission is not enabled for this form.')
     consent = AutoSubmissionConsent(work_order=order, snapshot=order.current_snapshot,

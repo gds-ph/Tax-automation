@@ -7,7 +7,7 @@ import tempfile
 from unittest import skipUnless
 from unittest.mock import patch
 from django.contrib.auth import get_user_model
-from django.test import LiveServerTestCase,override_settings
+from django.test import LiveServerTestCase, SimpleTestCase,override_settings
 from workorders.models import WorkOrder
 from workorders.test_support import make_profile,order_data,ensure_transactional_form
 from workorders.services import create_work_order,transition_work_order
@@ -239,7 +239,10 @@ class WindowsBridgeTests(LiveServerTestCase):
                 if live and not automatic:
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_bytes(b'conflicting archive')
-                    bridge('Publish',fail=True)
+                    reporting = bridge('Publish')
+                    self.assertFalse(reporting['Recorded'])
+                    self.assertTrue(reporting['RecoveryRequired'])
+                    self.assertEqual(reporting['Status'], 'REPORTING_RECOVERY_REQUIRED')
                     self.assertEqual(json.loads((root/'stage2-journal.json').read_text())['Phase'],'ArchivePending')
                     self.assertTrue(bridge('Poll')['RecoveryRequired'])
                     bridge('Start',fail=True)
@@ -311,3 +314,44 @@ class WindowsBridgeTests(LiveServerTestCase):
                     self.assertTrue(xml.exists())
                     self.assertFalse(target.exists())
                 self.assertFalse(bridge('Poll')['HasTask'])
+
+@skipUnless(os.name == 'nt', 'Windows PowerShell bridge contract test')
+class BridgeReportingContractTests(SimpleTestCase):
+    def test_failed_reporting_returns_json_and_keeps_pending_submission(self):
+        script = Path(__file__).resolve().parents[1] / 'worker' / 'Stage2Bridge.ps1'
+        with tempfile.TemporaryDirectory(prefix='ebir-reporting-test-') as directory:
+            root = Path(directory)
+            config = root / 'worker.json'
+            config.write_text(json.dumps({'ApiBaseUrl': 'http://localhost', 'Token': 'TEST_SECRET'}))
+            screenshot = root / 'submission-success.png'
+            screenshot.write_bytes(b'X' * 100)
+            journal = root / 'stage2-journal.json'
+            runner = root / 'invoke.ps1'
+            runner.write_text("param($Bridge, $Config, $Operation)\n"
+                "function Invoke-WebRequest { throw 'TEST_SECRET transport failure' }\n"
+                "& $Bridge -ConfigPath $Config -Action $Operation\n")
+            for status in ('SUBMITTED_WAITING_FOR_CONFIRMATION', 'SAVED_RETURN_ROW_NOT_FOUND'):
+                with self.subTest(status=status):
+                    pending = {'Phase': 'Publishing', 'Claim': {
+                        'AttemptId': '01234567-1234-1234-1234-123456789012',
+                        'AutomationKey': 'SUBMIT_1601CV2018', 'LeaseToken': 'TEST_SECRET',
+                        'ResultUrl': '/api/agent/stage2/test/result/',
+                        'ScreenshotUploadUrl': '/api/agent/stage2/test/screenshot/',
+                        'Inputs': {'SuccessScreenshotPath': str(screenshot)}},
+                        'Result': {'SubmissionStatus': status, 'SuccessScreenshotPath': str(screenshot)}}
+                    journal.write_text(json.dumps(pending))
+                    before = journal.read_bytes()
+                    for operation in ('Publish', 'Publish', 'Poll'):
+                        result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive',
+                            '-ExecutionPolicy', 'Bypass',
+                            '-File', str(runner), str(script), str(config), operation],
+                            capture_output=True, text=True, timeout=15,
+                            creationflags=subprocess.CREATE_NO_WINDOW)
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertNotIn('TEST_SECRET', result.stdout + result.stderr)
+                        response = json.loads(result.stdout)
+                        self.assertTrue(response['RecoveryRequired'])
+                        if operation == 'Publish':
+                            self.assertFalse(response['Recorded'])
+                            self.assertEqual(response['Status'], 'REPORTING_RECOVERY_REQUIRED')
+                        self.assertEqual(journal.read_bytes(), before)

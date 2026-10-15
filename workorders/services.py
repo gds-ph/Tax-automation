@@ -180,6 +180,10 @@ def refresh_work_order_snapshot(*, work_order_id, actor, expected_version):
     old_status = order.status
     order.status = Status.DRAFT
     order.zero_filing_approved = False
+    if order.form_data.get('schema') in ('0619e-suppliers-v1', '1601eq-suppliers-v1'):
+        order.form_data = {**order.form_data, 'schedule_confirmed': False}
+    if order.form_data.get('schema') == '1601c-payroll-v1':
+        order.form_data = {**order.form_data, 'payroll_confirmed': False}
     _snapshot(order, payload, versions, actor)
     _persist(order, expected_version)
     AuditEvent.objects.create(work_order=order, snapshot=order.current_snapshot, actor=actor, kind=AuditEvent.Kind.SNAPSHOT_REFRESHED,
@@ -207,11 +211,24 @@ def validate_readiness(order):
         raise ValidationError("The source configuration changed. Explicitly refresh and review the snapshot before queuing.")
     if snap.data.get("filing") != {name: getattr(order, name) for name in EDITABLE_FIELDS}:
         raise ValidationError("Filing details do not match the reviewed snapshot.")
-    if not order.zero_filing or not order.zero_filing_approved:
+    if order.expected_form_number == '1601Cv2018' and not order.zero_filing:
+        from .payroll_1601c import normalize
+        if not normalize(order.form_data)['payroll_confirmed']:
+            raise ValidationError('Review and confirm the payroll summary before preparation.')
+    elif order.expected_form_number == '0619E' and not order.zero_filing:
+        from .supplier_0619e import normalize
+        if not normalize(order.form_data)['schedule_confirmed']:
+            raise ValidationError('Review and confirm the supplier schedule before preparation.')
+    elif order.expected_form_number == '1601EQ' and not order.zero_filing:
+        from .quarterly_1601eq import normalize
+        reviewed = normalize(order.form_data)
+        if not reviewed['schedule_confirmed'] or reviewed['quarter'] != order.filing_quarter:
+            raise ValidationError('Review the quarterly schedule for this exact period before preparation.')
+    elif not order.zero_filing or not order.zero_filing_approved:
         raise ValidationError("Explicit zero-filing confirmation is required.")
     from .period_policy import validate_completed_period
     validate_completed_period(definition.filing_frequency, order.filing_year, order.filing_month, order.filing_quarter)
-    return definition.automation_key
+    return order.automation_key
 
 
 def get_preparation_automation_key(order):

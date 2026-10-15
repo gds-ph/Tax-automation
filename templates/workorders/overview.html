@@ -9,8 +9,7 @@
     <label for="range-form">Form</label>
     <select class="input" id="range-form" name="form">
       <option value="">All forms</option>
-      <option value="2551Q" {% if form_code == '2551Q' %}selected{% endif %}>2551Q</option>
-      <option value="1601C" {% if form_code == '1601C' %}selected{% endif %}>1601C</option>
+      {% for code in overview_forms %}<option value="{{ code }}" {% if form_code == code %}selected{% endif %}>{{ code }}</option>{% endfor %}
     </select>
   </div>
   <div class="field"><label for="range-start">From</label><input class="input" id="range-start" type="date" name="start" value="{{ start|date:'Y-m-d' }}"></div>

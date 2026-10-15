@@ -13,6 +13,8 @@ from .catalog_models import Client, FormDefinition, ClientFilingProfile
 from .definitions import get_definition, validate_form_data, validate_period
 from .model_support import ServiceModel
 from .statuses import WorkOrderStatus
+from .withholding_models import ExpandedWithholdingDraft, ExpandedWithholdingRevision
+from .quarterly_models import QuarterlyWithholdingDraft, QuarterlyWithholdingRevision
 
 # Displayed in red: every state that stops a filing and needs a person to look.
 FAILURE_DISPLAY_STATUSES = frozenset({
@@ -131,7 +133,7 @@ class WorkOrder(ServiceModel):
             models.CheckConstraint(condition=Q(filing_month__isnull=True) | Q(filing_quarter__isnull=True), name="wo_one_period_granularity"),
             models.CheckConstraint(condition=Q(client__isnull=True, client_filing_profile__isnull=True) | Q(client__isnull=False, client_filing_profile__isnull=False), name="wo_client_profile_pair"),
             models.CheckConstraint(condition=Q(status__in=["CANCELLED", "DRAFT", "READY_TO_PREPARE", "PROCESSING_PREPARATION", "AWAITING_SUBMISSION_APPROVAL", "PREPARATION_FAILED_PDF_NOT_FOUND", "PREPARATION_FAILED_XML_NOT_FOUND", "PROFILE_REVIEW_REQUIRED", "FAILED_SYSTEM", "FAILED_BUSINESS"]), name="wo_m2_enabled_statuses"),
-            models.CheckConstraint(condition=~Q(status="READY_TO_PREPARE") | Q(zero_filing_approved=True), name="wo_ready_requires_zero_confirmation"),
+            models.CheckConstraint(condition=~Q(status="READY_TO_PREPARE") | Q(zero_filing=True, zero_filing_approved=True) | Q(zero_filing=False, expected_form_number="1601Cv2018", form_data__payroll_confirmed=True) | Q(zero_filing=False, expected_form_number="0619E", form_data__schedule_confirmed=True) | Q(zero_filing=False, expected_form_number="1601EQ", form_data__schedule_confirmed=True), name="wo_ready_requires_filing_confirmation"),
             models.CheckConstraint(condition=Q(approved_for_submission=False), name="wo_m2_no_submission_approval"),
             models.CheckConstraint(condition=Q(version__gte=1), name="wo_positive_version"),
         ]
@@ -182,13 +184,15 @@ class WorkOrder(ServiceModel):
             self.expected_form_number == '1601Cv2018' and getattr(settings, 'ENABLE_1601C_SUBMISSION', False)) or (
             self.expected_form_number == '1601EQ' and getattr(settings, 'ENABLE_1601EQ_SUBMISSION', False)) or (
             self.expected_form_number == '0619F' and getattr(settings, 'ENABLE_0619F_SUBMISSION', False)) or (
+            self.expected_form_number == '0619E' and getattr(settings, 'ENABLE_0619E_SUBMISSION', False)) or (
             self.expected_form_number == '1600VTv2018' and getattr(settings, 'ENABLE_1600VT_SUBMISSION', False))
 
     @property
     def automation_key(self):
         if not self.current_snapshot_id or self.is_legacy_unlinked:
             return ""
-        return self.current_snapshot.data.get("form", {}).get("automation_key", "")
+        from .payroll_1601c import preparation_key
+        return preparation_key(self.current_snapshot.data)
 
     def clean_fields(self, exclude=None):
         if not isinstance(self.filing_year, str):
@@ -212,18 +216,25 @@ class WorkOrder(ServiceModel):
         else:
             form = {"definition_key": "", "filing_frequency": "QUARTERLY"}
         validate_period(form["filing_frequency"], self.filing_year, self.filing_month, self.filing_quarter)
+        if form.get("definition_key") == "0619e_zero" and self.filing_month not in (1, 2, 4, 5, 7, 8, 10, 11):
+            raise ValidationError({"filing_month": "0619-E preparation supports the first two months of each quarter only."})
         definition = get_definition(form.get("definition_key", ""))
         if not self.is_legacy_unlinked:
             self.form_data = validate_form_data(form.get("definition_key", ""), self.form_data, require_atc=bool(definition))
             if definition:
                 definition.validate_zero(self.zero_filing)
+            if form.get('definition_key') in ('1601cv2018_zero', '0619e_zero', 'cor_1601eq'):
+                if self.zero_filing and self.form_data or not self.zero_filing and not self.form_data:
+                    raise ValidationError('Reviewed data and the selected filing mode do not match.')
+                if not self.zero_filing and self.zero_filing_approved:
+                    raise ValidationError('Non-zero preparation cannot use zero-filing confirmation.')
         from automation_api.worker_policy import ENABLED_STATUSES
         if self.status not in ENABLED_STATUSES and not (self.status == 'CANCELLED' and self.is_archived):
             raise ValidationError("This status is not enabled yet.")
         if self.status == self.Status.READY_TO_PREPARE:
             if self.is_legacy_unlinked or not self.current_snapshot_id:
                 raise ValidationError("Link and review this historical work order before queuing.")
-            if not definition or not self.zero_filing_approved:
+            if not definition:
                 raise ValidationError("A tested automation definition and explicit zero-filing confirmation are required.")
             from .services import validate_readiness
             validate_readiness(self)

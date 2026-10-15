@@ -354,6 +354,10 @@ class Stage2Tests(WorkerApiTests):
         job=self.job(); self.upload(job); self.result(job)
         order=WorkOrder.objects.get()
         browser=Client(); browser.force_login(self.actor)
+        detail=browser.get(reverse('workorders:detail',args=[order.pk]))
+        self.assertContains(detail, 'name="authorize_submission"')
+        self.assertContains(detail, 'Approve &amp; submit')
+        self.assertNotContains(detail, 'Approve for revalidation')
         data={'version':order.version,'pdf_sha256':order.prepared_pdf_sha256}
         url=reverse('workorders:approve-stage2',args=[order.pk])
         self.assertEqual(browser.post(url,data).status_code,400)

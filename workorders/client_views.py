@@ -39,9 +39,14 @@ class PreparationForm(forms.Form):
         if frequency == 'MONTHLY':
             self.fields['zero_filing_approved'].label = ('I confirm this is a private withholding agent with no compensation, withholding, attachments, tax relief or prior-month adjustments for this month.')
         if form_code == '2550Q':
-            self.fields['zero_filing_approved'].label = 'I confirm this is a calendar-year, original, full-quarter 2550Q return for a Micro taxpayer, with no sales, purchases, input VAT, credits, carryovers, adjustments, tax relief or penalties.'
+            self.fields['taxpayer_classification'] = forms.ChoiceField(label='Taxpayer classification', choices=[('', 'Choose classification'), ('MICRO', 'Micro'), ('SMALL', 'Small'), ('MEDIUM', 'Medium'), ('LARGE', 'Large')])
+            self.fields['zero_filing_approved'].label = 'I confirm this is a calendar-year, original, full-quarter 2550Q return for the selected taxpayer classification, with no sales, purchases, input VAT, credits, carryovers, adjustments, tax relief or penalties.'
         if form_code == '1600VT':
             self.fields['zero_filing_approved'].label = 'I confirm a non-amended private-agent 1600-VT return with no tax withheld, attachments, tax relief, credits or penalties.'
+        if form_code == '0619E':
+            self.fields.pop('auto_approve', None)
+            self.fields['zero_filing_approved'].label = 'I confirm an original private-agent 0619-E return with no expanded income tax withheld, remittance or penalties.'
+            self.fields['filing_month'].choices = [('', 'Choose a month')] + [(m, f'{m:02d}') for m in (1, 2, 4, 5, 7, 8, 10, 11)]
         if form_code == '0619F':
             self.fields['zero_filing_approved'].label = 'I confirm a non-amended private-agent 0619-F return with no final income tax withheld, remittance or penalties.'
         if form_code == '1601EQ':
@@ -259,6 +264,8 @@ def prepare(request, pk, profile_pk):
     versions = {'client': profile.client.version, 'form': profile.form_definition.version, 'profile': profile.version}
     initial = {**default_completed_period(profile.form_definition.filing_frequency),
                'request_token': signing.dumps({'actor': request.user.pk, 'profile': str(profile.pk), 'request': str(uuid.uuid4()), 'versions': versions}, salt='client-preparation')}
+    if profile.form_definition.form_code == '0619E' and initial['filing_month'] in (3, 6, 9, 12):
+        initial['filing_month'] -= 1
     monthly = profile.form_definition.filing_frequency == 'MONTHLY'
     form = PreparationForm(request.POST if request.method == 'POST' else None, initial=initial,
                            frequency=profile.form_definition.filing_frequency, form_code=profile.form_definition.form_code,
@@ -271,6 +278,8 @@ def prepare(request, pk, profile_pk):
                 raise ValidationError('This request belongs to another client or filing. Reload this page.')
             data = {name: form.cleaned_data[name] for name in ('filing_year', 'filing_month' if monthly else 'filing_quarter', 'zero_filing_approved')}
             data.update(zero_filing=True, form_data={} if profile.form_definition.form_code != '2551Q' else {'atc_code': profile.default_atc_code or profile.default_form_data.get('atc_code') or 'PT 010'})
+            if profile.form_definition.form_code == '2550Q':
+                data['form_data'] = {'taxpayer_classification': form.cleaned_data['taxpayer_classification']}
             order = services.create_and_queue_work_order(actor=request.user, data=data, client_filing_profile_id=profile.pk,
                         request_id=uuid.UUID(token['request']), source_versions=token['versions'],
                         auto_approve=form.cleaned_data.get('auto_approve', False))

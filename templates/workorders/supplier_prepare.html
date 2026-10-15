@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}0619E supplier summary{% endblock %}
+{% block content %}
+<a class="breadcrumb" href="{% url 'workorders:withholding-draft' taxpayer.pk %}?year={{ draft.year }}&amp;month={{ draft.month }}">← Supplier worksheet</a>
+<div class="page-heading"><div><p class="eyebrow">{{ taxpayer.display_name }}</p><h1>0619E supplier summary</h1><p class="muted">{{ draft.month }}/{{ draft.year }} · Original private-agent return</p></div></div>
+<div class="notice"><strong>Review before preparation.</strong> Check the supplier amounts and period. Preparation creates a PDF for review; submission requires a separate approval.</div>
+{% if error %}<div class="notice" role="alert">{{ error }}</div>{% endif %}
+{% if schedule %}
+<section class="panel detail-section"><h2>Monthly withholding</h2><dl class="details"><dt>Supplier transactions</dt><dd>{{ schedule.rows|length }}</dd><dt>Total tax withheld</dt><dd><strong>₱{{ amount }}</strong></dd><dt>Remittance credits</dt><dd>₱0.00</dd><dt>Penalties</dt><dd>₱0.00</dd><dt>Preview amount payable</dt><dd><strong>₱{{ amount }}</strong></dd></dl><p class="small muted">This preview assumes no remittance credits or penalties. Review supplier classifications, ATCs and rates against your source documents.</p></section>
+{% include 'workorders/supplier_summary.html' %}
+<section class="panel detail-section"><h2>Prepare the return</h2><p>The worker will fill this total into 0619E and save a PDF for your review. This does not submit the return or record payment.</p>
+{% if preview_token %}<form method="post">{% csrf_token %}<input type="hidden" name="preview_token" value="{{ preview_token }}"><p><label><input type="checkbox" name="reviewed" required> I reviewed this client's suppliers, period, tax bases, ATCs and rates. This is an original private-agent return with no prior remittance credits or penalties.</label></p><button class="button primary">Queue preparation →</button></form>{% endif %}
+<a class="button secondary" href="{% url 'workorders:withholding-draft' taxpayer.pk %}?year={{ draft.year }}&amp;month={{ draft.month }}">Edit supplier worksheet</a></section>
+{% endif %}
+{% endblock %}

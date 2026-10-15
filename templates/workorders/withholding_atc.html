@@ -1,0 +1,73 @@
+<style>
+.worksheet .transaction input[readonly]:not([type=hidden]):not([type=checkbox]) { background:var(--bg-hover); color:var(--text-secondary); cursor:default; box-shadow:none; border-color:var(--border); }
+.worksheet .worksheet-transactions { overflow:visible; }
+.atc-control { position:relative; }
+.worksheet .atc-control input:not([type=hidden]):not([type=checkbox]) { padding-right:22px; }
+.atc-toggle { position:absolute; right:1px; top:1px; height:32px; width:22px; border:0; border-radius:var(--radius-sm); background:transparent; color:var(--text-muted); cursor:pointer; }
+.atc-popup { position:absolute; top:calc(100% + 6px); right:0; width:460px; max-width:80vw; z-index:50; background:var(--bg-surface); border:1px solid var(--border-strong); border-radius:var(--radius-sm); box-shadow:0 8px 28px #0002; }
+.atc-caption { padding:10px 12px; border-bottom:1px solid var(--border); color:var(--text-muted); font-size:12px; }
+.atc-options { max-height:280px; overflow-y:auto; overscroll-behavior:contain; }
+.atc-option { padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--border); font-size:12px; }
+.atc-option:last-child { border-bottom:0; }
+.atc-option[aria-selected=true], .atc-option:hover { background:var(--accent-light); }
+.atc-option strong { display:block; color:var(--text-primary); margin-bottom:4px; font-size:13px; }
+.atc-option span { display:block; color:var(--text-secondary); line-height:1.45; }
+.atc-empty { padding:14px; color:var(--text-muted); font-size:13px; }
+@media(max-width:640px) { .atc-popup { left:0; right:auto; max-width:75vw; } }
+</style>
+<script>
+(() => {
+ const catalog=JSON.parse(document.getElementById('atc-catalog').textContent);
+ let closeCurrent=()=>{};
+ window.initWorksheetAtcs=()=>{
+  document.querySelectorAll('#transaction-list input[name$="-atc"]').forEach(input=>{
+   if(input.dataset.atcReady)return;
+   input.dataset.atcReady='true'; input.removeAttribute('maxlength'); input.autocomplete='off';
+   input.setAttribute('role','combobox'); input.setAttribute('aria-autocomplete','list'); input.setAttribute('aria-expanded','false');
+   const rate=input.closest('[data-transaction]').querySelector('input[name$="-rate"]');
+   const wrap=document.createElement('div');wrap.className='atc-control';input.before(wrap);wrap.append(input);
+   const toggle=document.createElement('button');toggle.type='button';toggle.className='atc-toggle';toggle.textContent='⌄';toggle.setAttribute('aria-label','Browse ATCs');wrap.append(toggle);
+   const popup=document.createElement('div');popup.className='atc-popup';popup.hidden=true;wrap.append(popup);
+   const caption=document.createElement('div');caption.className='atc-caption';popup.append(caption);
+   const options=document.createElement('div');options.className='atc-options';options.id=input.id+'-options';options.setAttribute('role','listbox');options.setAttribute('aria-label','Expanded withholding ATCs');popup.append(options);
+   input.setAttribute('aria-controls',options.id);
+   let matches=[],active=-1;
+   const describe=()=>{const entry=catalog.find(e=>e.code===input.value.trim().toUpperCase());input.title=entry?entry.description:'';};describe();
+   function close(){popup.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');active=-1;}
+   function select(entry){input.value=entry.code;rate.value=entry.rate;input.setCustomValidity('');describe();close();input.focus();}
+   function highlight(index){active=index;Array.from(options.children).forEach((el,i)=>el.setAttribute('aria-selected',String(i===active)));const el=options.children[active];if(el){input.setAttribute('aria-activedescendant',el.id);el.scrollIntoView({block:'nearest'});}}
+   function show(query=''){
+    closeCurrent();closeCurrent=close;
+    const terms=query.trim().toUpperCase().split(/\s+/).filter(Boolean);
+    matches=catalog.filter(e=>terms.every(t=>(e.code+' '+e.description).toUpperCase().includes(t)));
+    options.replaceChildren();active=-1;
+    caption.textContent=matches.length+' expanded-withholding ATCs · type a code or description';
+    matches.forEach((entry,index)=>{
+     const el=document.createElement('div');el.className='atc-option';el.id=options.id+'-'+index;el.setAttribute('role','option');el.setAttribute('aria-selected','false');
+     const title=document.createElement('strong');title.textContent=entry.code+' · '+entry.rate+'% · '+(entry.code.startsWith('WI')?'Individual':'Corporation');
+     const detail=document.createElement('span');detail.textContent=entry.description;el.append(title,detail);options.append(el);
+     el.addEventListener('mousedown',e=>e.preventDefault());el.addEventListener('click',()=>select(entry));
+    });
+    if(!matches.length){const el=document.createElement('p');el.className='atc-empty';el.textContent='No matching ATC. Try another code or description.';options.append(el);}
+    popup.hidden=false;input.setAttribute('aria-expanded','true');
+   }
+   input.addEventListener('click',()=>{if(popup.hidden)show();});
+   toggle.addEventListener('mousedown',e=>e.preventDefault());
+   toggle.addEventListener('click',()=>{if(!popup.hidden)close();else{input.focus();show();}});
+   input.addEventListener('input',()=>{
+    const entry=catalog.find(e=>e.code===input.value.trim().toUpperCase());rate.value=entry?entry.rate:'';
+    input.setCustomValidity(entry||!input.value?'':'Select an ATC from the list.');show(input.value);
+   });
+   input.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){close();e.preventDefault();}
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(popup.hidden)show();if(matches.length)highlight((active+(e.key==='ArrowDown'?1:-1)+matches.length)%matches.length);}
+    if(e.key==='Enter'&&!popup.hidden){e.preventDefault();if(active>=0)select(matches[active]);else if(matches.length===1)select(matches[0]);}
+    if(e.key==='Tab')close();
+   });
+   input.addEventListener('blur',()=>{const entry=catalog.find(e=>e.code===input.value.trim().toUpperCase());if(entry)input.value=entry.code;describe();});
+   wrap.addEventListener('focusout',e=>{if(!wrap.contains(e.relatedTarget))close();});
+   document.addEventListener('pointerdown',e=>{if(!wrap.contains(e.target))close();});
+  });
+ };
+})();
+</script>

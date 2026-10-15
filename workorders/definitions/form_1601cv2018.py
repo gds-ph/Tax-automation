@@ -21,6 +21,9 @@ class Definition1601C(Definition2551Q):
         pass
 
     def validate_data(self, data, *, require_atc=False):
+        if data and data.get('schema') == '1601c-payroll-v1':
+            from workorders.payroll_1601c import normalize
+            return normalize(data)
         if data:
             raise ValidationError({'form_data': '1601C currently supports only private-agent preparation with no compensation, withholding, attachments, tax relief or prior-month adjustments.'})
         return {}
@@ -29,7 +32,7 @@ class Definition1601C(Definition2551Q):
         return f'{order.filing_month:02d}{order.filing_year}'
 
     def validate_zero(self, zero_filing):
-        if zero_filing is not True:
+        if type(zero_filing) is not bool:
             raise ValidationError({'zero_filing': 'Only the tested zero-compensation 1601C preparation is implemented.'})
 
 

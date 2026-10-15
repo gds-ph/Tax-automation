@@ -215,3 +215,5 @@ ENABLE_1600VT_SUBMISSION = os.environ.get('ENABLE_1600VT_SUBMISSION', '0') == '1
 
 # Enable after the 2550Q submission flow and dynamic saved-return selector are verified.
 ENABLE_2550Q_SUBMISSION = os.environ.get('ENABLE_2550Q_SUBMISSION', '0') == '1'
+
+ENABLE_0619E_SUBMISSION = os.environ.get('ENABLE_0619E_SUBMISSION', '0') == '1'

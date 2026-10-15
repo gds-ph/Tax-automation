@@ -2,18 +2,28 @@
 
 Django 5.2.17 LTS and SQLite, with reusable Clients, versioned Form Definitions,
 Client Filing Profiles, audited Work Orders, and immutable filing snapshots.
-The approved Milestone 2 architecture revision is complete. The dashboard now starts with Clients: select a client, choose an available
-form, select its period and queue preparation. See the
-[client dashboard report](docs/client-dashboard-report.md).
-Only calendar-year 2551Qv2018 zero preparation can be marked ready; 1701Q is a
-planned definition with no executable route. The Stage 1 worker API, protected PDF
-transfer/download and Windows bridge are implemented locally. Actual VM execution
-and submission remain unconnected/disabled. See the [worker setup guide](docs/worker-api-setup.md)
-and [implementation report](docs/worker-api-report.md).
+The dashboard supports client filing cards, reviewed monthly and quarterly worksheets,
+Excel import/paste, immutable preparation jobs, PAD-generated PDFs, explicit submission
+approval, receipt tracking, and audited cancellation/archive workflows.
 
-See the [client architecture implementation report](docs/client-architecture-report.md)
-for the current design, migration preservation, tests, and manual verification.
-Earlier milestone reports describe their original delivery and are historical.
+**Current documentation (15 October 2026):**
+
+- [Complete operating and implementation guide](docs/current-system-guide.md)
+- [Documentation index](docs/README.md)
+- [PAD export inventory and installation boundaries](docs/pad-release-inventory.md)
+
+Seven forms are enabled in the deployment preparation catalog: **0619E, 0619F,
+1600VT, 1601C, 1601EQ, 2550Q and 2551Q**. Nonzero preparation is implemented for
+0619E supplier withholding, 1601C payroll and 1601EQ quarterly withholding within
+the scope documented in the guide. Other enabled routes remain zero-filing only.
+1604E, 1701, 1701A and 1701Q are catalog entries without PAD preparation.
+
+Server and worker capabilities must both be installed. Submission depends on the
+form's server switch, worker capability and explicit authorization. A prepared PDF
+is not proof of submission or payment. Historical milestone reports below describe
+their original delivery and do not supersede the current guide.
+
+See [validation results and known failures](docs/release-2026-10-15.md) before deploying this checkpoint.
 
 ## Windows development setup
 
@@ -44,7 +54,7 @@ path.write_text(text.replace(placeholder, secrets.token_urlsafe(64)), encoding='
 Environment variables take precedence over `.env`. `DJANGO_SECRET_KEY` is required
 and must contain at least 50 characters; use a securely generated random value.
 `DJANGO_DEBUG` accepts `True` or `False` and defaults to `False` when absent.
-`DJANGO_ALLOWED_HOSTS` is restricted to `127.0.0.1` and `localhost` in this milestone.
+Set `DJANGO_ALLOWED_HOSTS` for the intended environment; use loopback hosts for local development.
 Timezone is `Asia/Manila`, with timezone-aware timestamps (`USE_TZ = True`).
 
 Run checks, migrations, and the development server:

@@ -50,9 +50,16 @@ class Preparation2550QTests(TestCase):
                     digest=order.prepared_pdf_sha256, submission_enabled=enabled)
         self.assertFalse(Stage2Approval.objects.exists())
 
+    def test_pdf_accepts_print_split_three_pages(self):
+        order, job = self.job()
+        response = self.upload(job, fixtures.two_page_pdf(pages=3))
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(self.result(job).status_code, 200)
+
     def test_wrong_page_count_rejected(self):
         order, job = self.job()
-        self.assertNotEqual(self.upload(job, fixtures.two_page_pdf(pages=1)).status_code, 200)
+        for pages in (1, 4):
+            self.assertNotEqual(self.upload(job, fixtures.two_page_pdf(pages=pages)).status_code, 200)
         self.assertNotEqual(self.result(job).status_code, 200)
 
     def test_ui_confirmation_and_no_auto_submission(self):
@@ -60,12 +67,12 @@ class Preparation2550QTests(TestCase):
         browser = Client(); browser.force_login(self.actor)
         url = reverse('workorders:client-prepare', args=[profile.client_id, profile.pk])
         response = browser.get(url)
-        self.assertContains(response, 'Micro taxpayer')
+        self.assertContains(response, 'Taxpayer classification')
         self.assertNotContains(response, 'name="auto_approve"')
         response = browser.post(url, dict(request_token=response.context['form']['request_token'].value(),
-            filing_mode='ZERO', filing_year='2026', filing_quarter='3', zero_filing_approved='on', auto_approve='on'))
+            filing_mode='ZERO', filing_year='2026', filing_quarter='3', zero_filing_approved='on', auto_approve='on', taxpayer_classification='SMALL'))
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(WorkOrder.objects.get().form_data, {})
+        self.assertEqual(WorkOrder.objects.get().form_data, {'taxpayer_classification': 'SMALL'})
 
     def test_fiscal_and_amounts_rejected(self):
         with self.assertRaises(ValidationError):
@@ -74,3 +81,18 @@ class Preparation2550QTests(TestCase):
         for data in (order_data(form_data={'sales': 100}), order_data(form_data={}, zero_filing=False)):
             with self.assertRaises(ValidationError):
                 create_work_order(actor=self.actor, client_filing_profile_id=profile.pk, data=data)
+
+    def test_classifications_validate_and_reach_worker(self):
+        from .worker_services import payload
+        from workorders.definitions.form_2550qv2024 import DEFINITION
+        from .models import PreparationAttempt
+        order, job = self.job()
+        self.assertEqual(job['Inputs']['TaxpayerClassification'], 'MICRO')
+        attempt = PreparationAttempt.objects.get(pk=job['AttemptId'])
+        for value in ('MICRO', 'SMALL', 'MEDIUM', 'LARGE'):
+            attempt.snapshot.data['filing']['form_data'] = {'taxpayer_classification': value}
+            self.assertEqual(payload(attempt)['Inputs']['TaxpayerClassification'], value)
+            self.assertEqual(DEFINITION.validate_data({'taxpayer_classification': value}), {'taxpayer_classification': value})
+        for value in ('', 'unknown', None):
+            with self.assertRaises(ValidationError):
+                DEFINITION.validate_data({'taxpayer_classification': value})

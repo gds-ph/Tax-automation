@@ -5,7 +5,7 @@ Reviewed 2 October 2026. Code and live preparation support exist. `ENABLE_1601C_
 The monthly preparation contract targets the PAD flows `Stage1_Prepare_1601C`
 and `Stage2_Submit_1601C`. The tested preparation scenario is a private withholding
 agent with no compensation, withholding, attachments, tax relief or prior-month
-adjustments. Zero withholding with nonzero compensation is not implemented.
+adjustments. Positive compensation is now supported through the separate reviewed payroll-summary path below, including zero withholding.
 
 The preparation UI requires explicit confirmation of this scope. It stores a
 month (1–12), no quarter, and sends `FilingMonth` to PAD as two-digit text.
@@ -86,3 +86,65 @@ before automatic XML archiving. The shared helper accepts both live form keys.
 The post-submission 1601C dialogs have only had their selectors adapted; their
 real behavior is not yet verified. Missing evidence must never trigger an
 automatic resubmission.
+
+
+## Reviewed payroll summary (12 October 2026)
+
+From a client's 1601C preparation card, select **Prepare from payroll summary**. Enter
+monthly totals from completed payroll, preview the reconciliation, then confirm
+the reviewed figures to queue preparation. This is direct entry; Excel import
+and employee-by-employee tax computation are not included.
+
+The first version accepts original private-employer returns only, with no
+adjustments, remittance credits, relief, attachments, or penalties. It maps
+items 14–20, 23 and 25 and reconciles items 21, 22, 24 and 36. Compensation must
+be positive; withholding may be zero. Use the existing zero-filing route for
+no compensation. Other exempt compensation needs a description of at most
+25 characters, matching the eBIRForms field.
+
+The signed review expires after 30 minutes and is bound to the user, filing
+profile and source versions. The queue stores immutable amounts in the work
+order snapshot. It requires manual prepared-PDF approval; advance automatic
+submission approval is disabled for payroll returns.
+
+- Preparation capability: `PREPARE_1601CV2018_PAYROLL`
+- Parent route: same `Stage1_Prepare_1601C` child and existing inputs/outputs
+- Start bridge writes reviewed values to `OutputFolder\payroll.json`
+- Child uses the file only when present; existing zero jobs keep their route
+- Publish and Stage2 Start run `Test-1601CPayrollXml.ps1` to compare saved identity,
+  period, scope and every amount against the snapshot before continuing
+- Existing XML for the period blocks preparation; it is never overwritten
+- Submission still uses `SUBMIT_1601CV2018` after approval
+
+Install `WorkerBridge.ps1`, `Stage2Bridge.ps1` and `Test-1601CPayrollXml.ps1`
+together. Add the payroll preparation capability only after the PAD child and
+parent route are installed. Recovery can retire Running or Publishing journals
+only after the server confirms an operator-abandoned matching preparation;
+the old journal is backed up. A mismatch must be investigated, never bypassed
+by substituting success or approving the old PDF.
+
+
+### PAD maintenance notes
+
+Use PAD's `{Control}({End})` syntax for Ctrl+End. The old `^{End}` text
+inserted a literal caret into the focused field and could replace a payroll
+description. Validate, Save and Print use simulated clicks with stable IDs.
+Leave the existing PDF merge input ordering in place: on this installed PAD
+version it produced logical page 1 followed by page 2; verify the resulting
+PDF rather than inferring order from the action's text representation.
+
+
+### Verification on the deployment VM
+
+On 12 October 2026, Test Company preparations for November 2025 (100,000
+compensation, 7,500 withholding) and October 2025 (100,000 compensation, zero
+withholding, 1,000 other exemption with a description) reached awaiting
+submission approval. Saved identity, period, scope, description and amounts
+matched the reviewed snapshots; both rendered PDFs had two complete pages in
+logical order. Neither sample was approved or submitted to BIR.
+
+Fifteen focused backend tests passed locally and in the server image. XML guard
+checks rejected changed TIN, month and withheld tax. The worker retries only
+explicit `write_conflict` result responses, at most twice, using the same
+attempt/body; permanent result failures stop without retry. Worker scripts
+passed PowerShell parsing and bounded retry checks.

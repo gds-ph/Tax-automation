@@ -118,6 +118,9 @@ class WorkOrderForm(forms.Form):
         if self.monthly:
             self.fields.pop('atc_code')
             self.fields['zero_filing_approved'].label = 'I confirm a private agent with no compensation, withholding, attachments, tax relief or prior-month adjustments.'
+        if instance and instance.expected_form_number == '2550Qv2024':
+            self.fields.pop('atc_code', None)
+            self.fields['taxpayer_classification'] = forms.ChoiceField(choices=[(x, x.title()) for x in ('MICRO', 'SMALL', 'MEDIUM', 'LARGE')], initial=instance.form_data.get('taxpayer_classification', 'MICRO'))
         if instance and instance.expected_form_number == '1601EQ':
             self.fields.pop('atc_code', None)
             self.fields['zero_filing_approved'].label = 'I confirm a non-amended private-agent return with no withholding, remittances, credits, penalties or attachments.'
@@ -136,6 +139,8 @@ class WorkOrderForm(forms.Form):
 
     def clean(self):
         data = super().clean()
+        if self.instance and self.instance.form_data.get('schema') in ('1601c-payroll-v1', '0619e-suppliers-v1'):
+            raise ValidationError('Cancel this preparation and review a new source summary to change these amounts.')
         if self.instance and self.instance.is_legacy_unlinked:
             raise ValidationError("This historical record must be explicitly linked and reviewed before editing.")
         if self.instance and data.get("expected_version") != self.instance.version:
@@ -144,6 +149,9 @@ class WorkOrderForm(forms.Form):
 
     def source_data(self):
         data = {name: self.cleaned_data[name] for name in ("filing_year", 'filing_month' if self.monthly else 'filing_quarter', "zero_filing", "zero_filing_approved")}
+        if self.instance and self.instance.expected_form_number == '2550Qv2024':
+            data['form_data'] = {'taxpayer_classification': self.cleaned_data['taxpayer_classification']}
+            return data
         if self.monthly or (self.instance and self.instance.expected_form_number == '1601EQ'):
             data['form_data'] = {}
             return data
