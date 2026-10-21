@@ -1,5 +1,5 @@
 <section class="panel detail-section"><h2>Reviewed supplier schedule</h2>
 <p>Saved revision {{ schedule.draft_version }} · {{ schedule.rows|length }} transactions</p>
 <div class="table-scroll"><table><thead><tr><th>Supplier</th><th>TIN</th><th>ATC</th><th>Tax base</th><th>Rate (%)</th><th>Withholding</th><th>Particulars</th></tr></thead><tbody>
-{% for row in schedule.rows %}<tr><td>{{ row.payee }}</td><td class="mono">{{ row.tin }}</td><td>{{ row.atc }}</td><td>{{ row.base }}</td><td>{{ row.rate }}</td><td>{{ row.tax }}</td><td>{{ row.reference }}</td></tr>{% endfor %}
+{% for row in schedule.rows %}<tr><td>{{ row.payee }}</td><td class="mono">{{ row.tin }}</td><td>{{ row.atc }}</td><td>{{ row.base|floatformat:"2g" }}</td><td>{{ row.rate }}</td><td>{{ row.tax|floatformat:"2g" }}</td><td>{{ row.reference }}</td></tr>{% endfor %}
 </tbody></table></div></section>

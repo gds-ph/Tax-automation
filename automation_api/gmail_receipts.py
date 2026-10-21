@@ -77,7 +77,7 @@ def lookup_receipt(filename,since, *, sender=None):
 
 def test_imap_connection():
     mailbox=GmailMailbox.current(); address=mailbox.address if mailbox else settings.GMAIL_ADDRESS; password=mailbox.app_password() if mailbox else settings.GMAIL_APP_PASSWORD
-    mailbox=imaplib.IMAP4_SSL('imap.gmail.com', 993)
+    mailbox=imaplib.IMAP4_SSL('imap.gmail.com', 993, timeout=30)
     try:
         mailbox.login(address, password)
         return True
@@ -89,17 +89,20 @@ def _lookup_imap(filename, since, *, sender=None):
     """Search Gmail over IMAP; app-password mode needs no OAuth redirect URI."""
     sender = (sender or settings.GMAIL_RECEIPT_SENDER).strip().lower()
     config=GmailMailbox.current(); address=config.address if config else settings.GMAIL_ADDRESS; password=config.app_password() if config else settings.GMAIL_APP_PASSWORD
-    mailbox=imaplib.IMAP4_SSL('imap.gmail.com', 993)
+    mailbox=imaplib.IMAP4_SSL('imap.gmail.com', 993, timeout=30)
     try:
         mailbox.login(address, password)
         # Simulated receipts are commonly classified as Spam; search both
         # read-only folders without changing labels or marking mail read.
         for folder in ('INBOX', '"[Gmail]/Spam"'):
             try:
-                mailbox.select(folder, readonly=True)
+                status, _ = mailbox.select(folder, readonly=True)
+                if status != 'OK':
+                    continue
             except imaplib.IMAP4.error:
                 continue
-            status, data=mailbox.search(None, 'FROM', sender, 'SINCE', since.strftime('%d-%b-%Y'))
+            status, data=mailbox.search(None, 'FROM', sender, 'SINCE', since.strftime('%d-%b-%Y'),
+                                      'TEXT', '"' + filename + '"')
             if status != 'OK':
                 continue
             for number in reversed(data[0].split()):

@@ -45,8 +45,16 @@
 <p class="small muted">These details are the reusable client record used by new filings. Editing them never changes a filing that was already prepared: every work order keeps the details recorded in its own snapshot.</p>
 
 {% elif tab == 'history' %}
+<form method="get" class="panel" style="padding:16px; margin-bottom:16px">
+<input type="hidden" name="tab" value="history">
+<div style="display:flex; flex-wrap:wrap; gap:12px; align-items:end">
+{% for field in history_fields %}<div style="flex:1; min-width:160px"><label for="{{ field.name }}">{{ field.label }}</label>
+<select class="input" id="{{ field.name }}" name="{{ field.name }}"><option value="">All</option>
+{% for value,label in field.choices %}<option value="{{ value }}"{% if field.value == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>{% endfor %}
+<button class="button" type="submit">Apply filters</button><a class="button secondary" href="?tab=history">Clear filters</a>
+</div></form>
 <section class="panel">
-  <div class="table-heading"><h2>Filing history</h2><span class="small muted">Most recently created first{% if order_count > 25 %} · showing the latest 25{% endif %}</span></div>
+  <div class="table-heading"><h2>Filing history</h2><span class="small muted">{{ history_count }} matching filing{{ history_count|pluralize }} · Most recently created first</span></div>
   {% if orders %}
   <div class="table-scroll"><table><thead><tr><th scope="col">Form / period</th><th scope="col">Created</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Open work order</span></th></tr></thead><tbody>
   {% for order in orders %}<tr>
@@ -57,9 +65,14 @@
   </tr>{% endfor %}
   </tbody></table></div>
   {% else %}
-  <div class="empty-state"><span class="empty-icon" aria-hidden="true">▤</span><h2>No filings yet</h2><p>Queued and prepared filings for this client will be listed here.</p></div>
+  <div class="empty-state"><span class="empty-icon" aria-hidden="true">▤</span><h2>{% if history_filtered %}No matching filings{% else %}No filings yet{% endif %}</h2><p>{% if history_filtered %}Change or clear the filters to see more filings.{% else %}Queued and prepared filings for this client will be listed here.{% endif %}</p></div>
   {% endif %}
 </section>
+
+{% if history_page.has_other_pages %}<nav aria-label="Filing history pages" style="display:flex; gap:16px; align-items:center; margin:16px 0">
+{% if history_page.has_previous %}<a href="?{{ history_query }}&amp;page={{ history_page.previous_page_number }}">Previous</a>{% endif %}
+<span>Page {{ history_page.number }} of {{ history_page.paginator.num_pages }}</span>
+{% if history_page.has_next %}<a href="?{{ history_query }}&amp;page={{ history_page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
 
 {% else %}
 {% if taxpayer.registration_setup or can_reset_demo %}<div class="filings-toolbar">

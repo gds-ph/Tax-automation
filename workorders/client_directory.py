@@ -98,7 +98,7 @@ def month_folder_name(month):
 
 
 def archive_final_package(client, order, filename, data):
-    """Archive packages under BIR/FILED RETURNS; monthly returns use year/month folders."""
+    """Archive packages under BIR/FILED RETURNS; returns use filing-period year/month folders."""
     bir_folder = filing_folder(client, order)
     if bir_folder is None:
         return {'status': 'not_configured'}
@@ -145,8 +145,16 @@ def filing_folder(client, order):
     if destination is None:
         raise DirectoryUnavailable('No BIR, BIR FILING or FILED RETURNS folder exists in the company folder.')
     bir_folder = company_folder + '/' + destination
-    if order is not None and order.filing_month is not None:
-        month_name = month_folder_name(order.filing_month)
+    if order is not None:
+        month = order.filing_month
+        if month is None:
+            quarter = order.filing_quarter
+            if quarter not in (1, 2, 3, 4):
+                raise DirectoryUnavailable('A filing month or quarter is required for the archive folder.')
+            if str(order.year_end_month) not in ('', '12'):
+                raise DirectoryUnavailable('Fiscal-quarter archive dates require explicit period-end support.')
+            month = quarter * 3
+        month_name = month_folder_name(month)
         year = str(order.filing_year)
         if not re.fullmatch(r'[0-9]{4}', year):
             raise DirectoryUnavailable('A four-digit filing year is required for the package folder.')

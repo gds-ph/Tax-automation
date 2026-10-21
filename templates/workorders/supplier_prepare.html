@@ -8,8 +8,33 @@
 {% if schedule %}
 <section class="panel detail-section"><h2>Monthly withholding</h2><dl class="details"><dt>Supplier transactions</dt><dd>{{ schedule.rows|length }}</dd><dt>Total tax withheld</dt><dd><strong>₱{{ amount }}</strong></dd><dt>Remittance credits</dt><dd>₱0.00</dd><dt>Penalties</dt><dd>₱0.00</dd><dt>Preview amount payable</dt><dd><strong>₱{{ amount }}</strong></dd></dl><p class="small muted">This preview assumes no remittance credits or penalties. Review supplier classifications, ATCs and rates against your source documents.</p></section>
 {% include 'workorders/supplier_summary.html' %}
-<section class="panel detail-section"><h2>Prepare the return</h2><p>The worker will fill this total into 0619E and save a PDF for your review. This does not submit the return or record payment.</p>
-{% if preview_token %}<form method="post">{% csrf_token %}<input type="hidden" name="preview_token" value="{{ preview_token }}"><p><label><input type="checkbox" name="reviewed" required> I reviewed this client's suppliers, period, tax bases, ATCs and rates. This is an original private-agent return with no prior remittance credits or penalties.</label></p><button class="button primary">Queue preparation →</button></form>{% endif %}
-<a class="button secondary" href="{% url 'workorders:withholding-draft' taxpayer.pk %}?year={{ draft.year }}&amp;month={{ draft.month }}">Edit supplier worksheet</a></section>
+<section class="panel detail-section" aria-labelledby="prepare-heading">
+  <h2 id="prepare-heading">Prepare the return</h2>
+  <p class="muted" style="margin:12px 0 20px; max-width:80ch">Create a 0619E PDF from the reviewed supplier total. You can review the prepared return before approving submission.</p>
+  {% if preview_token %}
+  <div class="form-footer" style="flex-wrap:wrap; gap:12px; margin-top:20px">
+    <a class="button secondary" href="{% url 'workorders:withholding-draft' taxpayer.pk %}?year={{ draft.year }}&amp;month={{ draft.month }}">Edit supplier worksheet</a>
+    <button class="button primary" type="button" data-open-dialog="supplier-confirm" aria-haspopup="dialog">Queue preparation &rarr;</button>
+  </div>
+  <p class="small muted" style="margin-top:12px; text-align:right">Preparation does not submit the return or record payment.</p>
+  <dialog class="confirm-dialog" id="supplier-confirm" aria-labelledby="supplier-confirm-title" aria-describedby="supplier-confirm-description" style="width:min(540px, calc(100vw - 32px))">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="preview_token" value="{{ preview_token }}">
+      <h2 id="supplier-confirm-title">Confirm preparation</h2>
+      <p><strong>{{ taxpayer.display_name }}</strong><br>0619E &middot; {{ draft.month }}/{{ draft.year }}<br>Total withholding: &#8369;{{ amount|floatformat:"2g" }}</p>
+      <p id="supplier-confirm-description">By confirming, I acknowledge that I reviewed this client's suppliers, filing period, tax bases, ATCs and rates. This is an original private-agent return with no prior remittance credits or penalties.</p>
+      <p>This queues a PDF for review. It does not submit the return to BIR or record payment.</p>
+      <div class="dialog-actions" style="flex-wrap:wrap">
+        <button class="button secondary" type="button" data-close-dialog autofocus>Cancel</button>
+        <button class="button primary" type="submit" name="reviewed" value="on">Confirm and queue</button>
+      </div>
+    </form>
+  </dialog>
+  <noscript><p class="notice">Enable JavaScript to open the preparation confirmation.</p></noscript>
+  {% else %}
+  <a class="button secondary" href="{% url 'workorders:withholding-draft' taxpayer.pk %}?year={{ draft.year }}&amp;month={{ draft.month }}">Edit supplier worksheet</a>
+  {% endif %}
+</section>
 {% endif %}
 {% endblock %}

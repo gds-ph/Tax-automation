@@ -202,10 +202,12 @@ def client_detail(request, pk):
     for profile in profiles:
         profile.can_prepare = available(profile)
     history = client.work_orders.filter(is_archived=False) if request.user.has_perm('workorders.view_workorder') else client.work_orders.none()
+    from .history_filters import history_context
+    filtered_history = history_context(history, request.GET)
     tab = request.GET.get('tab', '')
     tab = tab if tab in CLIENT_TABS else DEFAULT_CLIENT_TAB
     return render(request, 'workorders/client_detail.html', {
-        'taxpayer': client, 'profiles': profiles, 'orders': history[:25],
+        'taxpayer': client, 'profiles': profiles, **filtered_history,
         'order_count': history.count(), 'profile_count': len(profiles),
         'tab': tab, 'tab_label': CLIENT_TABS[tab],
         'tabs': [(value, label, tab_url(request, value)) for value, label in CLIENT_TABS.items()],

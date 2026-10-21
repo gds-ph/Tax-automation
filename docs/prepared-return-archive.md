@@ -6,7 +6,7 @@ After Stage 1 successfully reports **Awaiting submission approval**, the server 
 
 ## Destination and filename
 
-The copy uses the same client mapping and destination resolver as the final package: prefer `BIR`, then `BIR FILING`, then `FILED RETURNS` under the mapped company folder. Monthly filings use `<root>/<filing year>/<MM MONTH>/`; quarterly filings stay directly under the selected root. Missing archive roots are reported for correction rather than guessed.
+The copy uses the same client mapping and destination resolver as the final package: prefer `BIR`, then `BIR FILING`, then `FILED RETURNS` under the mapped company folder. Monthly filings use `<root>/<filing year>/<MM MONTH>/`; calendar-quarter filings use the quarter-ending month (03 MARCH, 06 JUNE, 09 SEPTEMBER, or 12 DECEMBER). Missing archive roots are reported for correction rather than guessed.
 
 The copy is named `<original stem without _COMPLETE>_PREPARED_<work-order UUID>.pdf`. The work-order identifier distinguishes separate filings for the same period. The final package keeps its existing filename. Neither the protected dashboard PDF nor the VM PDF is moved or renamed.
 

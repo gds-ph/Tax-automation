@@ -6,7 +6,7 @@ Reviewed 2 October 2026 against `automation_api/receipts.py`, `gmail_receipts.py
 
 Receipt discovery applies to non-archived, live-enabled approvals in `SUBMITTED_WAITING_FOR_CONFIRMATION`. Preparation, approval alone and rehearsal outcomes do not trigger mail checks. Matching requires the saved XML basename (including 0619F's WB suffix), configured receipt sender, receipt subject and a message time at or after the submission attempt. Plain text and HTML receipts are supported.
 
-The Linux `receipts` service runs `check_bir_receipts`, then waits 60 seconds before the next pass. Each filing's interval is set by `receipt_check_interval_minutes` in Settings (1?1440 minutes), defaulting to one minute. Runtime and downtime can extend actual intervals. Delayed mail never queues another submission.
+The Linux `receipts` service runs `check_bir_receipts`, then waits 60 seconds before the next pass. Each filing's interval is set by `receipt_check_interval_minutes` in Settings (1?1440 minutes), defaulting to one minute. Runtime and downtime can extend actual intervals. Delayed mail never queues another submission. IMAP connections use a 30-second socket timeout and search for the saved XML filename before downloading candidate messages. The receipt service restarts a check that exceeds 15 minutes, so a stalled check cannot block later passes indefinitely.
 
 ## Mailbox configuration
 
@@ -31,7 +31,7 @@ The office-share destination chooses the existing company `BIR` folder first, th
 \\192.168.8.251\Starlight\Starlight offline\CLIENT\<Company>\BIR\2026\02 FEBRUARY\
 ```
 
-Monthly folders use the filing year/month, not today's date. Names are `01 JANUARY` through `12 DECEMBER`. Existing matching folders are reused; older files are not moved. Quarterly packages currently upload directly into BIR/FILED RETURNS. A missing configured company/root or share failure is recorded in `receipt.evidence['client_archive']`; a dashboard package alone does not prove an office-share copy succeeded. An already finalized package is not automatically archived again by the finalizer.
+Monthly folders use the filing year/month, not today's date. Names are `01 JANUARY` through `12 DECEMBER`. Existing matching folders are reused; older files are not moved. Calendar-quarter packages use the same year/month layout, with the quarter-ending month. A missing configured company/root or share failure is recorded in `receipt.evidence['client_archive']`; a dashboard package alone does not prove an office-share copy succeeded. An already finalized package is not automatically archived again by the finalizer.
 
 The submitted XML has a different VM archive; see [Submitted XML archiving](submitted-xml-archive.md). Receipt email confirmation is separate from final tax-authority validation.
 
