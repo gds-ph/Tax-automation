@@ -7,6 +7,7 @@ from . import task_notices, sample_form
 from . import withholding_views, payroll_views, supplier_views, quarterly_views, quarterly_prepare
 
 urlpatterns = [
+    path('work-orders/<uuid:pk>/remove/', views.work_order_remove, name='remove'),
     path('clients/<uuid:pk>/quarterly-drafts/<uuid:draft_pk>/prepare/', quarterly_prepare.prepare, name='quarterly-prepare'),
     path('clients/<uuid:pk>/filings/<uuid:profile_pk>/quarterly-worksheet/', quarterly_views.worksheet, name='quarterly-worksheet'),
     path('clients/<uuid:pk>/0619e/<uuid:draft_pk>/prepare/', supplier_views.prepare, name='supplier-prepare'),

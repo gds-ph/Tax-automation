@@ -1,0 +1,60 @@
+<style>
+.eq-review .eq-table-wrap { overflow-x:auto; margin:20px 0 24px; border:1px solid var(--border); border-radius:var(--radius-sm); }
+.eq-review table { margin:0; width:100%; table-layout:fixed; min-width:480px; }
+.eq-review th:first-child { width:20%; }
+.eq-review th:not(:first-child), .eq-review td:not(:first-child) { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.eq-review .eq-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; margin-bottom:24px; }
+.eq-review .eq-summary dl { margin:0; padding:16px 20px; border:1px solid var(--border); border-radius:var(--radius-sm); }
+.eq-review .eq-summary dl div { display:flex; justify-content:space-between; gap:20px; padding:8px 0; }
+.eq-review .eq-summary dt { color:var(--text-secondary); }
+.eq-review .eq-summary dd { margin:0; text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.eq-review .eq-due { display:flex; align-items:center; justify-content:space-between; gap:20px; background:var(--bg-hover); border:1px solid var(--border); border-radius:var(--radius-sm); padding:18px 20px; margin-bottom:20px; }
+.eq-review .eq-due strong { font-size:24px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.eq-review .eq-note { margin:0; color:var(--text-secondary); font-size:13px; line-height:1.6; }
+.eq-review .form-footer { margin-top:20px; padding-top:20px; border-top:1px solid var(--border); }
+.eq-review .notice p:last-child { margin-bottom:0; }
+@media(max-width:640px) { .eq-review .eq-summary { grid-template-columns:1fr; gap:12px; } .eq-review .eq-due strong { font-size:20px; } }
+
+#eq-queue-dialog .eq-modal-header { padding:22px 24px 18px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+#eq-queue-dialog .eq-modal-header h2 { font-size:20px; margin:0 0 6px; }
+#eq-queue-dialog .eq-modal-header p { margin:0; }
+#eq-queue-dialog .eq-modal-close { flex:none; padding:4px 10px; font-size:22px; line-height:1.2; }
+#eq-queue-dialog .eq-review { padding:20px 24px; margin:0; border:0; border-radius:0; box-shadow:none; }
+#eq-queue-dialog .eq-table-wrap { margin:0 0 18px; }
+#eq-queue-dialog th, #eq-queue-dialog td { padding:10px 14px; }
+#eq-queue-dialog .eq-summary { gap:16px; margin-bottom:18px; }
+#eq-queue-dialog .eq-summary dl { padding:10px 14px; }
+#eq-queue-dialog .eq-summary dl div { padding:6px 0; gap:12px; }
+#eq-queue-dialog .eq-due { padding:14px 16px; margin-bottom:14px; }
+#eq-queue-dialog .eq-due strong { font-size:22px; }
+#eq-queue-dialog .eq-modal-footer { padding:18px 24px 20px; border-top:1px solid var(--border); margin:0; }
+#eq-queue-dialog .eq-modal-footer p { margin:0 0 14px; }
+#eq-queue-dialog .dialog-actions { margin-top:0; flex-wrap:wrap; }
+@media(max-width:640px) {
+ #eq-queue-dialog .eq-modal-header, #eq-queue-dialog .eq-review, #eq-queue-dialog .eq-modal-footer { padding:16px; }
+ #eq-queue-dialog .eq-summary { grid-template-columns:1fr; }
+ #eq-queue-dialog .dialog-actions .button { width:100%; text-align:center; }
+}
+</style>
+<header class="eq-modal-header"><div><h2 id="eq-queue-title">Review and queue 1601EQ</h2>
+<p>{{ taxpayer.display_name }} · Q{{ draft.quarter }} {{ draft.year }} · Saved revision {{ draft.version }}</p></div><button type="button" class="button secondary eq-modal-close" data-eq-close aria-label="Close review">×</button></header>
+{% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+{% if amount %}<section class="panel detail-section eq-review">{% if amount.has_rounding_adjustment %}<div class="notice"><strong>Rounding adjustment for eBIRForms</strong><p>Your transaction amounts are unchanged. Preparation calculates withholding once per consolidated ATC instead of rounding each transaction separately.</p><p>Transaction total: ₱{{ amount.transaction_withheld|floatformat:'2g' }} · Adjustment: ₱{{ amount.rounding_adjustment|floatformat:'2g' }} · Return withholding: ₱{{ amount.withheld|floatformat:'2g' }}</p>{% for group in amount.groups %}<p>{{ group.atc }}: transaction withholding ₱{{ group.transaction_tax|floatformat:'2g' }} → return withholding ₱{{ group.tax|floatformat:'2g' }}</p>{% endfor %}</div>{% endif %}<div class="eq-table-wrap"><table><thead><tr><th>ATC</th><th>Tax base</th><th>Rate</th><th>Withholding</th></tr></thead><tbody>{% for group in amount.groups %}<tr><td>{{ group.atc }}</td><td>{{ group.base|floatformat:'2g' }}</td><td>{{ group.rate }}%</td><td>{{ group.tax|floatformat:'2g' }}</td></tr>{% endfor %}</tbody></table></div>
+<div class="eq-summary">
+<dl aria-label="Withholding and remittances">
+<div><dt>Total withheld</dt><dd>₱{{ amount.withheld|floatformat:'2g' }}</dd></div>
+<div><dt>First month paid</dt><dd>₱{{ amount.first_remittance|floatformat:'2g' }}</dd></div>
+<div><dt>Second month paid</dt><dd>₱{{ amount.second_remittance|floatformat:'2g' }}</dd></div>
+</dl>
+<dl aria-label="Penalties">
+<div><dt>Surcharge</dt><dd>₱{{ amount.surcharge|floatformat:'2g' }}</dd></div>
+<div><dt>Interest</dt><dd>₱{{ amount.interest|floatformat:'2g' }}</dd></div>
+<div><dt>Compromise</dt><dd>₱{{ amount.compromise|floatformat:'2g' }}</dd></div>
+</dl>
+</div>
+<div class="eq-due"><span>Amount due</span><strong>₱{{ amount.due|floatformat:'2g' }}</strong></div>
+<p class="eq-note">Original private-agent return. QAP is separate. PAD will prepare a PDF for review; submission requires approval.</p>
+</section>{% endif %}
+{% if preview_token %}<form class="eq-modal-footer" method="post" action="{% url 'workorders:quarterly-prepare' taxpayer.pk draft.pk %}">{% csrf_token %}<input type="hidden" name="preview_token" value="{{ preview_token }}">
+<p>Confirm that you reviewed these ATCs, rounding adjustments, remittances and penalties.</p>
+<div class="dialog-actions"><button type="button" class="button secondary" data-eq-close>Back to worksheet</button><button type="submit" name="reviewed" value="on" class="button primary">Confirm &amp; queue preparation</button></div></form>{% else %}<button type="button" class="button secondary" data-eq-close>Back to worksheet</button>{% endif %}

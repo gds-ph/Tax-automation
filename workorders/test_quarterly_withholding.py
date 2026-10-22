@@ -46,6 +46,23 @@ class WorksheetTests(TestCase):
         data.update({f'rows-0-{k}': str(v) for k, v in row().items()})
         return self.client.post(self.url, data)
 
+    def test_direct_save_validates_and_preserves_stale_guard(self):
+        data = {'action': 'save-draft', 'year': '2026', 'quarter': '3', 'version': '0',
+                'first_remittance': '0', 'second_remittance': '0',
+                'rows-TOTAL_FORMS': '1', 'rows-INITIAL_FORMS': '0'}
+        data.update({f'rows-0-{k}': str(v) for k, v in row().items()})
+        self.assertEqual(self.client.post(self.url, {**data, 'rows-0-base': 'bad'}).status_code, 409)
+        self.assertFalse(QuarterlyWithholdingDraft.objects.exists())
+        self.assertEqual(self.client.post(self.url, data).status_code, 302)
+        draft = QuarterlyWithholdingDraft.objects.get()
+        self.assertEqual(draft.data['withheld'], '2000.00')
+        self.assertEqual(draft.revisions.count(), 1)
+        self.assertFalse(WorkOrder.objects.exists())
+        self.assertEqual(self.client.post(self.url, data).status_code, 409)
+        page = self.client.get(self.url, {'year': 2026, 'quarter': 3})
+        self.assertContains(page, 'Save draft')
+        self.assertNotContains(page, 'Save reviewed draft')
+
     def test_review_save_replay_and_no_work_order(self):
         response = self.preview()
         self.assertEqual(response.status_code, 200)

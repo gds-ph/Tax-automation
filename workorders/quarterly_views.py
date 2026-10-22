@@ -88,7 +88,7 @@ def worksheet(request, pk, profile_pk):
                 rows = Rows(initial=initial or [{'month': quarter * 3 - 2}], prefix='rows')
                 # Editable suggestions, not verified payment records. Preserve saved overrides.
                 amounts = AmountForm(initial={**suggested, **data})
-            elif action == 'preview':
+            elif action in ('preview', 'save-draft'):
                 rows = Rows(request.POST, prefix='rows')
                 amounts = AmountForm(request.POST)
                 if not (rows.is_valid() and amounts.is_valid()):
@@ -101,10 +101,10 @@ def worksheet(request, pk, profile_pk):
                 token = signing.dumps({'actor': request.user.pk, 'profile': str(profile.pk), 'year': year,
                     'quarter': quarter, 'version': version, 'data': preview,
                     'client_version': profile.client.version}, salt=SALT, compress=True)
-            elif action == 'save':
-                if request.POST.get('reviewed') != 'on':
+            if action in ('save', 'save-draft'):
+                if action == 'save' and request.POST.get('reviewed') != 'on':
                     raise ValidationError('Confirm the quarterly schedule before saving.')
-                signed = signing.loads(request.POST.get('token', ''), salt=SALT, max_age=1800)
+                signed = signing.loads(token if action == 'save-draft' else request.POST.get('token', ''), salt=SALT, max_age=1800)
                 if (signed['actor'] != request.user.pk or signed['profile'] != str(profile.pk)
                     or signed['year'] != year or signed['quarter'] != quarter
                     or signed['client_version'] != profile.client.version):
@@ -122,7 +122,7 @@ def worksheet(request, pk, profile_pk):
                         current = QuarterlyWithholdingDraft.objects.create(client_id=pk, year=year, quarter=quarter, data=checked)
                     QuarterlyWithholdingRevision.objects.create(draft=current, version=current.version, data=checked, actor=request.user)
                 return redirect(reverse('workorders:quarterly-worksheet', args=[pk, profile_pk]) + f'?year={year}&quarter={quarter}&saved=1')
-            else:
+            elif action not in ('preview', 'load-months'):
                 raise ValidationError('Unknown worksheet action.')
         except (signing.BadSignature, ValueError, KeyError, TypeError):
             error, status = 'Review expired or invalid. Reload and review again.', 400

@@ -6,11 +6,12 @@ The dashboard supports client filing cards, reviewed monthly and quarterly works
 Excel import/paste, immutable preparation jobs, PAD-generated PDFs, explicit submission
 approval, receipt tracking, and audited cancellation/archive workflows.
 
-**Current documentation (15 October 2026):**
+**Current documentation (22 October 2026):**
 
 - [Complete operating and implementation guide](docs/current-system-guide.md)
 - [Documentation index](docs/README.md)
 - [PAD export inventory and installation boundaries](docs/pad-release-inventory.md)
+- [22 October issue/fix record, Git synchronization and validation](docs/release-2026-10-22.md)
 
 Seven forms are enabled in the deployment preparation catalog: **0619E, 0619F,
 1600VT, 1601C, 1601EQ, 2550Q and 2551Q**. Nonzero preparation is implemented for
@@ -23,7 +24,8 @@ form's server switch, worker capability and explicit authorization. A prepared P
 is not proof of submission or payment. Historical milestone reports below describe
 their original delivery and do not supersede the current guide.
 
-See [validation results and known failures](docs/release-2026-10-15.md) before deploying this checkpoint.
+See the [current validation record](docs/release-2026-10-22.md) and
+[earlier known failures](docs/release-2026-10-15.md) before deploying this checkpoint.
 
 ## Windows development setup
 

@@ -1,6 +1,9 @@
 # Current system guide
 
-Reviewed 15 October 2026 (Asia/Singapore). Application reporting uses Asia/Manila.
+Source checkpoint updated 22 October 2026 (Asia/Singapore); deployment observations
+retain their individual dates. Application reporting uses Asia/Manila.
+See the [issue/fix and validation record](release-2026-10-22.md) for synchronization,
+PAD incidents, evidence and open requests.
 This guide records the implemented source and observed deployment behavior. It is
 not a determination of a taxpayer's filing obligations or ATC eligibility.
 
@@ -96,10 +99,10 @@ Submission of a monthly return alone is not a payment record.
 Surcharge, interest and compromise are entered amounts; the worksheet does not calculate
 penalty rates. Total penalties is calculated from these three fields.
 
-Save a reviewed draft, then choose `Review saved draft for PAD`. The preparation review
-shows ATC totals, remittances, individual penalties, rounding adjustments and amount due.
-`Queue PAD preparation` opens a modal with client, quarter, revision and amount. `Back to
-review` or Escape closes it without queueing; `Confirm & queue preparation` posts explicit
+Use `Save draft` to validate and save current edits directly, without a separate totals review or checkbox. Draft saves create a revision but no work order. Then choose `Review and queue` on the worksheet. One modal
+shows the client, quarter, saved revision, ATC totals, remittances, individual penalties,
+rounding adjustments and amount due. Unsaved editor changes require saving first.
+`Back to worksheet` or Escape closes it without queueing; `Confirm & queue preparation` posts explicit
 review confirmation. The CSRF token, signed preview, actor, profile/source versions and
 draft version are validated. A repeated request is idempotent. Later worksheet edits do
 not alter an existing work order's snapshot.
@@ -227,3 +230,18 @@ historical evidence and should not be submitted as real returns.
 - `worker/WorkerBridge.ps1`, `Stage2Bridge.ps1`, `Test-*Xml.ps1`: VM contracts and verification.
 - `workorders/dashboard_actions.py`: guarded cancel/archive.
 - `workorders/views.py`, `templates/workorders/overview.html`: overview/filter allowlist.
+
+## Dashboard work-order removal (18 October 2026)
+
+Administrators see a Delete button beside eligible orders on the Work orders
+page. It opens an in-dashboard confirmation popup naming the client, form and
+period. Confirming removes the order from active lists and queues XML cleanup.
+No Django admin navigation is required. The endpoint requires administrator
+access, POST, CSRF, explicit confirmation and the current order version.
+
+Only prepared filings awaiting submission approval, without an active attempt
+or existing submission approval, are eligible. Audit records and review PDFs
+remain. The original worker moves the exact matching XML out of
+`C:\eBIRForms\savefile` into `C:\TaxAutomation\Archive\Cancelled` when idle.
+Conflicting return identities, unexpected paths and changed timestamps block
+cleanup for review. Deployment does not remove any existing orders.

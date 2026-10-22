@@ -58,5 +58,6 @@ def prepare(request, pk, draft_pk):
     except ValidationError as exc:
         error = ' '.join(exc.messages)
         status = 409
-    return render(request, 'workorders/quarterly_prepare.html', {'taxpayer': profile.client, 'draft': draft,
+    template = 'workorders/quarterly_review_modal.html' if request.method == 'GET' and request.GET.get('modal') == '1' else 'workorders/quarterly_prepare.html'
+    return render(request, template, {'taxpayer': profile.client, 'draft': draft,
         'profile': profile, 'schedule': schedule, 'amount': amount, 'preview_token': token, 'error': error, 'section': 'clients'}, status=status)

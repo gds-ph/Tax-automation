@@ -122,6 +122,10 @@ def work_order_list(request, filing_slug="2551q", mine=False):
     if selected_kpi in {item['key'] for item in metrics}:
         orders = selected_orders
     page = Paginator(orders.select_related('stage2_approval__receipt_check'), 20).get_page(request.GET.get("page"))
+    if request.user.is_superuser:
+        from .dashboard_actions import cancellation_blocker
+        for order in page:
+            order.can_remove_xml = not cancellation_blocker(order)
     params = request.GET.copy()
     params.pop("page", None)
     return render(request, "workorders/list.html", {
@@ -130,6 +134,27 @@ def work_order_list(request, filing_slug="2551q", mine=False):
         "mine": mine, **notice_context(unread(request.user) if mine else []), "workers": workers(),
         "has_filters": any(request.GET.get(key) for key in ("client", "status", "year", "quarter", 'month', 'kpi')),
     })
+
+
+@dashboard_permission('workorders.view_workorder', 'workorders.change_workorder')
+@require_POST
+def work_order_remove(request, pk):
+    if not request.user.is_superuser:
+        raise PermissionDenied('Only administrators can remove work orders and XML.')
+    from .dashboard_actions import cancel_order
+    get_object_or_404(_orders(), pk=pk)
+    form = TransitionForm(request.POST)
+    if not form.is_valid() or request.POST.get('confirmed') != 'yes':
+        messages.error(request, 'Confirm removal and reload the work orders page before trying again.')
+        return redirect('workorders:list')
+    try:
+        cancel_order(actor=request.user, work_order_id=pk, expected_version=form.cleaned_data['expected_version'])
+    except (ValidationError, OperationalError) as error:
+        messages.error(request, ' '.join(error.messages) if isinstance(error, ValidationError)
+                       else 'Another update is in progress. Reload and try again.')
+    else:
+        messages.success(request, 'Work order removed. Its XML will be moved out of eBIRForms savefile when PAD is idle. History and PDFs are retained.')
+    return redirect('workorders:list')
 
 
 def _add_errors(form, error):

@@ -234,6 +234,11 @@ if ($Action -eq 'Publish') {
         if (-not (Test-Path -LiteralPath $outputs.PreparedPdfPath -PathType Leaf) -or -not (Test-Path -LiteralPath $outputs.SavedXmlPath -PathType Leaf)) {
             throw 'Both the VM-local XML and merged PDF must exist.'
         }
+        if ($claim.AutomationKey -eq 'PREPARE_1600VT_ZERO') {
+            $helperRoot = if ($PSScriptRoot) { $PSScriptRoot } else { 'C:\TaxAutomation' }
+            . ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $helperRoot 'Test-1600VTPreparedXml.ps1'))))
+            Assert-1600VTPreparedXml -Path $outputs.SavedXmlPath -Inputs $claim.Inputs
+        }
         if ($claim.AutomationKey -eq 'PREPARE_1601EQ_SUPPLIERS') {
             $helperRoot = if ($PSScriptRoot) { $PSScriptRoot } else { 'C:\TaxAutomation' }
             . ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $helperRoot 'Test-1601EQPreparedXml.ps1'))))

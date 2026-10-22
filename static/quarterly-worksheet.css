@@ -28,3 +28,24 @@
 
 .eq-penalties{margin-top:20px}.eq-penalties .field-grid{grid-template-columns:repeat(4,minmax(0,1fr));max-width:none;gap:16px;align-items:end}.eq-penalties .field{margin-bottom:0}.eq-penalties .eq-penalty-total input{background:var(--bg-hover);color:var(--text-primary);font-weight:700}.eq-penalties label{display:block;margin-bottom:6px;font-size:12px;font-weight:600}
 @media(max-width:850px){.eq-penalties .field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:480px){.eq-penalties .field-grid{grid-template-columns:1fr}}
+
+/* Draft review: aligned summaries and breathing room around primary actions. */
+.eq-top-actions{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px 20px;margin:16px 0 24px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-surface)}
+.eq-top-actions .button{flex-shrink:0}
+.eq-draft-review .eq-scroll{border:1px solid var(--border);border-radius:var(--radius-sm);margin:20px 0}
+.eq-draft-review table{width:100%;min-width:540px;margin:0;table-layout:fixed}
+.eq-draft-review th:first-child{width:18%}
+.eq-draft-review th:not(:first-child),.eq-draft-review td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.eq-review-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin:0 0 20px}
+.eq-review-card{padding:18px 20px;border:1px solid var(--border);border-radius:var(--radius-sm)}
+.eq-review-card h3{font-size:14px;margin:0 0 12px}
+.eq-review-card dl{margin:0}
+.eq-review-card dl>div{display:flex;justify-content:space-between;align-items:baseline;gap:20px;padding:8px 0}
+.eq-review-card dt{color:var(--text-secondary);line-height:1.5}
+.eq-review-card dd{margin:0;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.eq-review-total{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:18px 20px;margin-bottom:18px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-hover)}
+.eq-review-total strong{font-size:24px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.eq-draft-review .eq-save-confirm{display:flex;align-items:flex-start;gap:10px;padding:14px 16px;margin-top:20px;border:1px solid var(--border);border-radius:var(--radius-sm);line-height:1.5}
+.eq-save-confirm input{flex:none;margin-top:3px}
+.eq-draft-review .form-footer{border-top:1px solid var(--border);padding-top:18px;margin-top:20px;gap:12px}
+@media(max-width:700px){.eq-review-cards{grid-template-columns:1fr;gap:12px}.eq-top-actions{align-items:stretch;flex-direction:column}.eq-review-total{align-items:flex-start;flex-direction:column;gap:8px}.eq-review-total strong{font-size:21px}.eq-review-card{padding:14px}.eq-draft-review .form-footer{flex-wrap:wrap}}

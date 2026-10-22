@@ -29,6 +29,7 @@ class TestReceiptSenderTests(SimpleTestCase):
     def test_imap_sender_filename_subject_and_date(self, imap, mailbox):
         name='63984860500000-1600VTv2018-082026.xml'
         since=datetime(2026,10,4,12,tzinfo=timezone.utc)
+        imap.return_value.select.return_value=('OK',[b'1'])
         for sender,filename,subject,date,expected in [
             ('Heiner <heiner@gds.ph>',name,'Tax Return Receipt Confirmation','Sun, 04 Oct 2026 13:00:00 +0000',True),
             ('heiner@gds.ph.evil.example',name,'Tax Return Receipt Confirmation','Sun, 04 Oct 2026 13:00:00 +0000',False),
@@ -41,3 +42,5 @@ class TestReceiptSenderTests(SimpleTestCase):
             imap.return_value.fetch.return_value=('OK',[(b'1',msg.as_bytes())])
             self.assertEqual(lookup_receipt(name,since,sender='heiner@gds.ph')['found'],expected)
         self.assertFalse(lookup_receipt(name,since)['found'])
+        self.assertTrue(all(call.kwargs.get('readonly') is True
+                            for call in imap.return_value.select.call_args_list))

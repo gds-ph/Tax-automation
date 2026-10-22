@@ -1,8 +1,10 @@
 # Project documentation
 
-## Current checkpoint: 15 October 2026
+## Current checkpoint: 22 October 2026
 
-See [validation results and known failures](release-2026-10-15.md). The full suite is not green.
+See the [issue/fix record, synchronization and validation](release-2026-10-22.md)
+and [earlier validation results and known failures](release-2026-10-15.md).
+The full suite is not certified green.
 
 Start with the [complete system guide](current-system-guide.md) for the current form matrix, worksheet workflows, Excel paste, rounding, worker contracts, recovery, deployment and validation. The [PAD inventory](pad-release-inventory.md) identifies local flow exports and their checksums. These guides supersede the historical snapshot below.
 

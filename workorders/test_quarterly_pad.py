@@ -73,3 +73,19 @@ class QuarterlyPadTests(TestCase):
         self.assertEqual(result['rows'],self.draft.data['rows'])
         positive=totals({**order.form_data,'rows':[{**row(),'base':'0.24'},{**row(),'base':'1.24'}]})
         self.assertEqual(positive['rounding_adjustment'],'0.01')
+
+    def test_inline_review_queues_only_after_confirmation(self):
+        page = self.client.get(reverse('workorders:quarterly-worksheet', args=[self.profile.client_id, self.profile.pk]), {'year': 2026, 'quarter': 3})
+        self.assertContains(page, 'Review and queue →')
+        self.assertNotContains(page, 'Review saved draft for PAD')
+        self.assertContains(page, 'id="eq-queue-dialog"', count=1)
+        review = self.client.get(self.url, {'modal': '1'})
+        self.assertContains(review, 'id="eq-queue-title"')
+        self.assertContains(review, '1,760.00')
+        self.assertNotContains(review, '<dialog')
+        self.assertFalse(WorkOrder.objects.exists())
+        token = review.context['preview_token']
+        self.assertEqual(self.client.post(self.url, {'preview_token': token}).status_code, 409)
+        self.assertFalse(WorkOrder.objects.exists())
+        self.assertEqual(self.client.post(self.url, {'preview_token': token, 'reviewed': 'on'}).status_code, 302)
+        self.assertEqual(WorkOrder.objects.count(), 1)
