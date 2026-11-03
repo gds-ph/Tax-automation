@@ -1,5 +1,8 @@
 # PAD release inventory
 
+Latest checkpoint: [3–4 November repairs and current export hashes](release-2026-11-04.md).
+The older inventories below remain historical; the latest 1601EQ flow has 100 actions.
+
 Recorded 15 October 2026. These are local exports from the preceding implementation work, not a fresh export of the running PAD installation. Compare the installed flow before restoring. The source repository includes PowerShell bridges, XML validators and the ATC control map; it does not contain complete importable PAD flows.
 
 Exports are held in `../outputs/` relative to the repository on the development VM. Back up that directory in restricted operational storage. Raw exports can contain embedded screenshots and taxpayer data, so they are deliberately excluded from Git. A Git clone alone cannot rebuild the entire Windows automation.

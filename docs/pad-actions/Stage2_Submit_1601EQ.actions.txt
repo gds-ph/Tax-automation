@@ -1,0 +1,114 @@
+SET SubmissionStatus TO $'''SUBMISSION_UNCONFIRMED'''
+SET SuccessScreenshotPathOutput TO $'''%''%'''
+SET ExpectedReturnPeriod TO $'''%FilingYear%Q%FilingQuarter%'''
+SET ExpectedSavedReturnName TO $'''%TIN1%%TIN2%%TIN3%%TIN4%-%ExpectedFormNumber%-%ExpectedReturnPeriod%'''
+Folder.GetFiles Folder: $'''C:\\eBIRForms\\savefile''' FileFilter: $'''%ExpectedSavedReturnName%.xml''' IncludeSubfolders: False FailOnAccessDenied: True SortBy1: Folder.SortBy.NoSort SortDescending1: False SortBy2: Folder.SortBy.NoSort SortDescending2: False SortBy3: Folder.SortBy.NoSort SortDescending3: False Files=> Files
+IF Files.Count = 1 THEN
+    IF Files[0].FullName <> ApprovedXmlPath THEN
+        SET SubmissionStatus TO $'''WORK_ORDER_VERIFICATION_FAILED'''
+        EXIT Code: 0
+    END
+    System.RunApplication.RunApplication ApplicationPath: $'''C:\\eBIRForms\\BIRForms.exe''' WorkingDirectory: $'''C:\\eBIRForms''' WindowStyle: System.ProcessWindowStyle.Normal ProcessId=> AppProcessId
+    WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit']) FOR 60
+    Scripting.RunPowershellScript.RunScript Script: $'''& \'C:/TaxAutomation/Initialize-1601EQResend.ps1\' -ApprovedXmlPath \'%ApprovedXmlPath%\' ''' ScriptOutput=> ResendMode
+    Text.Trim Text: ResendMode TrimOption: Text.TrimOption.Both TrimmedText=> ResendMode
+    IF ResendMode <> $'''NORMAL''' THEN
+        IF ResendMode <> $'''RESEND''' THEN
+            SET SubmissionStatus TO $'''FAILED_SYSTEM'''
+            EXIT Code: 0
+        END
+    END
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit'] Text: TIN1 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\''] Text: TIN2 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\' 2'] Text: TIN3 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\' 3'] Text: TIN4 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Text 6'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%RDOCode%{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+    WAIT 3
+    UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Text'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%FormSelectionText%{Enter}
+''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+    WAIT 3
+    UIAutomation.Click.SimulateClick Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Approved 1601EQ saved return']
+    ON ERROR REPEAT 2 TIMES WAIT 2
+    ON ERROR
+        GOTO SavedReturnRowNotFound
+    END
+    UIAutomation.Click.SimulateClick Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'View\'']
+    WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Edit']) FOR 60
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Control}({End})''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+    WAIT 2
+    UIAutomation.GetElementDetails Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Button \'Validate\''] AttributeName: $'''Enabled''' BringToFront: True AttributeValue=> ValidateEnabled
+    IF ValidateEnabled = $'''true''' THEN
+        UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Button \'Validate\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+        WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Text \'Validation  ...  your entries.\'']) FOR 60
+        UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Button \'OK\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    ELSE
+        UIAutomation.GetElementDetails Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Button \'Submit / Final Copy\' 2'] AttributeName: $'''Enabled''' BringToFront: True AttributeValue=> SubmitEnabled
+        IF SubmitEnabled <> $'''true''' THEN
+            SET SubmissionStatus TO $'''FAILED_SYSTEM'''
+            EXIT Code: 0
+        END
+    END
+    IF ApprovedForSubmission = True THEN
+        IF (IsNotEmpty(WorkOrderId) AND IsNotEmpty(ApprovalId) AND IsNotEmpty(ApprovedBy) AND ApprovedForSubmission = True AND SubmissionEnabled = True AND ExpectedFormNumber = '1601EQ' AND ExpectedReturnPeriod = ApprovedReturnPeriod AND ExpectedSavedReturnName = ApprovedSavedReturnName) = $'''True''' THEN
+            DISABLE Display.ShowMessageDialog.ShowMessage Title: $'''Submission authorized''' Message: $'''Approval was received. The Submit / Final Copy action would run here.
+''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+            UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Button \'Submit / Final Copy\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+            WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Text \'Please ensure  ...  you want to submit?\'']) FOR 30
+            UIAutomation.GetElementDetails Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Text \'Please ensure  ...  you want to submit?\''] AttributeName: $'''Own Text''' BringToFront: True AttributeValue=> ConfirmationText
+            IF ResendMode = $'''RESEND''' THEN
+                IF ConfirmationText <> $'''Resend your Tax Return to eBIRForms Online?
+
+Click OK to continue, or Cancel to stop.''' THEN
+                    SET SubmissionStatus TO $'''FAILED_SYSTEM'''
+                    EXIT Code: 0
+                END
+            ELSE
+                IF ConfirmationText <> $'''Please ensure that you have INTERNET access and a VALID email address is indicated in your tax return.
+
+Are you sure you want to submit?''' THEN
+                    SET SubmissionStatus TO $'''FAILED_SYSTEM'''
+                    EXIT Code: 0
+                END
+            END
+            UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Button \'OK\' 5'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+            DISABLE WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Button \' Ok \' 2']) FOR 30
+            IF ResendMode = $'''NORMAL''' THEN
+                UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Button \' Ok \' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+            END
+            WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Text \'Submit  ...  of efiled return.\' 3 2']) FOR 120
+            UIAutomation.FocusWindow.Focus Window: appmask['Window \'BIR Form No. 1601-EQ\'']['Text \'Submit  ...  of efiled return.\' 4 2']
+            Workstation.TakeScreenshot.TakeScreenshotAndSaveToFile File: SuccessScreenshotPath ImageFormat: System.ImageFormat.Png
+            SET SuccessScreenshotPathOutput TO SuccessScreenshotPath
+            SET SubmissionStatus TO $'''SUBMITTED_WAITING_FOR_CONFIRMATION'''
+            UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Button \'OK\' 6'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+            IF ResendMode = $'''NORMAL''' THEN
+                WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Button \'Close\' 3']) FOR 30
+                UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601-EQ\'']['Button \'Close\' 4'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+            END
+            UIAutomation.CloseWindow.Close Window: appmask['Window \'BIR Form No. 1601-EQ\'']['Title Bar 2']
+            EXIT Code: 0
+        ELSE
+            SET SubmissionStatus TO $'''WORK_ORDER_VERIFICATION_FAILED'''
+            DISABLE Display.ShowMessageDialog.ShowMessage Message: $'''Work-order verification failed. Nothing was submitted.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+            EXIT Code: 0
+        END
+    ELSE
+        DISABLE Display.ShowMessageDialog.ShowMessage Title: $'''Submission blocked''' Message: $'''No approval was supplied. The return was not submitted.
+''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed2
+        SET SubmissionStatus TO $'''BLOCKED_NOT_APPROVED'''
+        EXIT Code: 0
+    END
+ELSE
+    SET SubmissionStatus TO $'''SAVED_RETURN_NOT_UNIQUE'''
+    DISABLE Display.ShowMessageDialog.ShowMessage Message: $'''Expected saved return was not found, or multiple matching files exist.
+Submission has been stopped.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed3
+    EXIT Code: 0
+END
+LABEL SavedReturnRowNotFound
+SET SubmissionStatus TO $'''SAVED_RETURN_ROW_NOT_FOUND'''
+DISABLE Display.ShowMessageDialog.ShowMessage Message: $'''The expected saved-return row could not be found on screen.
+Submission has been stopped.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed4
+EXIT Code: 0
+

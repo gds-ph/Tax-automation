@@ -1,0 +1,111 @@
+# Original private-agent 0619E: zero or reviewed supplier total. Preparation only.
+Scripting.RunPowershellScript.RunScript Script: $'''$p = Join-Path \'%OutputFolder%\' \'suppliers.json\'
+if (Test-Path -LiteralPath $p) { Get-Content -LiteralPath $p -Raw } else { \'{\"Enabled\":false}\' }''' ScriptOutput=> SupplierJson
+Variables.ConvertJsonToCustomObject Json: SupplierJson CustomObject=> Suppliers
+SET PreparationStatusOutput TO $'''PREPARATION_IN_PROGRESS'''
+SET FormCode TO $'''0619E'''
+SET FormSelectionText TO $'''BIR Form 0619E'''
+SET PreparedPdfPath TO $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_COMPLETE.pdf'''
+SET SavedXmlPath TO $'''C:\\eBIRForms\\savefile\\%TIN1%%TIN2%%TIN3%%TIN4%-0619E-%FilingMonth%%FilingYear%.xml'''
+IF (File.IfFile.Exists File: SavedXmlPath) THEN
+    SET PreparationStatusOutput TO $'''PREPARATION_BLOCKED_EXISTING_OUTPUT'''
+    EXIT Code: 0
+END
+IF (File.IfFile.Exists File: PreparedPdfPath) THEN
+    SET PreparationStatusOutput TO $'''PREPARATION_BLOCKED_EXISTING_OUTPUT'''
+    EXIT Code: 0
+END
+System.RunApplication.RunApplication ApplicationPath: $'''C:\\eBIRForms\\BIRForms.exe''' WorkingDirectory: $'''C:\\eBIRForms''' WindowStyle: System.ProcessWindowStyle.Normal ProcessId=> AppProcessId
+WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 15']) FOR 60
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit'] Text: TIN1 Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\''] Text: TIN2 Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\' 2'] Text: TIN3 Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\' 3'] Text: TIN4 Mode: UIAutomation.PopulateTextMode.Replace
+MouseAndKeyboard.SendKeys.FocusAndSendKeysByControl Control: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['RDO dropdown'] TextToSend: $'''{Home}%RDOCode%{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: False
+WAIT 3
+UIAutomation.GetElementDetails Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 7 4'] AttributeName: $'''Own Text''' BringToFront: True AttributeValue=> ExistingRegisteredName
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 2'] Text: RegisteredName Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 3'] Text: RegisteredAddress Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 4'] Text: ZipCode Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 6'] Text: TelephoneNumber Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 5'] Text: EmailAddress Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 8'] Text: LineOfBusiness Mode: UIAutomation.PopulateTextMode.Replace
+MouseAndKeyboard.SendKeys.FocusAndSendKeysByControl Control: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Form dropdown'] TextToSend: $'''{Home}%FormSelectionText%{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: False
+UIAutomation.Click.SimulateClick Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'Fill-up\'']
+WAIT 1
+IF (UIAutomation.IfWindowContains.WindowContainsElement Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'Submit\''] InstantCheck: True) THEN
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 9'] Text: TIN1 Mode: UIAutomation.PopulateTextMode.Replace
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 10'] Text: TIN2 Mode: UIAutomation.PopulateTextMode.Replace
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 11'] Text: TIN3 Mode: UIAutomation.PopulateTextMode.Replace
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 12'] Text: TIN4 Mode: UIAutomation.PopulateTextMode.Replace
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 13'] Text: EmailAddress Mode: UIAutomation.PopulateTextMode.Replace
+    UIAutomation.Click.SimulateClick Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'Submit\'']
+    WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\'']) FOR 60
+    UIAutomation.Click.SimulateClick Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\'']
+    WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'Fill-up\'']) FOR 60
+    UIAutomation.Click.SimulateClick Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'Fill-up\'']
+END
+WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\'']) FOR 60
+UIAutomation.Click.SimulateClick Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\'']
+WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 0619-E\'']['Edit 2']) FOR 60
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 0619-E\'']['Edit'] Text: FilingYear Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-E\'']['Button \'Open\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%FilingMonth%{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 0619-E\'']['Radio Button']
+UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 0619-E\'']['Radio Button \'No\'']
+UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 0619-E\'']['Radio Button 2']
+IF Suppliers['Enabled'] = True THEN
+    UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 0619-E\'']['Supplier withholding yes']
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 0619-E\'']['Supplier withholding total'] Text: Suppliers['Total'] Mode: UIAutomation.PopulateTextMode.Replace
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: True
+END
+WAIT 1
+UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 0619-E\'']['Supplier Button Validate']
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-E\'']['Button \'OK\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.GetElementDetails Element: appmask['Window \'BIR Form No. 0619-E\'']['Supplier Button Print'] AttributeName: $'''Enabled''' BringToFront: True AttributeValue=> PreparationPrintEnabled
+IF PreparationPrintEnabled <> $'''true''' THEN
+    SET PreparationStatusOutput TO $'''FAILED_SYSTEM'''
+    EXIT Code: 0
+END
+WAIT 1
+UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 0619-E\'']['Supplier Button Save']
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-E\'']['Button \'OK\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 1
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-E\'']['Button \'OK\' 3'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 1
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-E\'']['Pane \'BIR Form No. 0619-E\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Control}({End})
+''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+WAIT 1
+UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 0619-E\'']['Supplier Button Print']
+WAIT 2
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-E\'']['Button \'OK\' 4'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.FocusWindow.Focus Window: appmask['Window \'BIR Form No. 0619-E\'']['Title Bar']
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Control}({P})''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'Internet Explorer - Print\'']['Window \'Windows Print\'']) FOR 60
+UIAutomation.SetDropDownListValueInWindow.SetDropDownListValueByName DropDownList: appmask['Window \'Internet Explorer - Print\'']['Combo Box \'Printer\' 3'] OptionsNames: $'''Microsoft Print to PDF''' UseRegularExpressions: False
+UIAutomation.Click.SimulateClick Element: appmask['Window \'Internet Explorer - Print\'']['Button \'Print\' 2']
+WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 0619-E\'']['Edit \'File name:\' 2']) FOR 60
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 0619-E\'']['Edit \'File name:\''] Text: $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_COMPLETE.pdf''' Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 0619-E\'']['Button \'Save\' 3']
+WAIT 2
+UIAutomation.CloseWindow.Close Window: appmask['Window \'BIR Form No. 0619-E\'']['Title Bar 2']
+SET PreparedPdfPath TO $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_COMPLETE.pdf'''
+SET SavedXmlPath TO $'''C:\\eBIRForms\\savefile\\%TIN1%%TIN2%%TIN3%%TIN4%-0619E-%FilingMonth%%FilingYear%.xml'''
+IF (File.IfFile.Exists File: PreparedPdfPath) THEN
+    IF (File.IfFile.Exists File: SavedXmlPath) THEN
+        SET PreparationStatusOutput TO $'''AWAITING_SUBMISSION_APPROVAL'''
+        EXIT Code: 0
+    ELSE
+        SET PreparationStatusOutput TO $'''PREPARATION_FAILED_XML_NOT_FOUND'''
+        Display.ShowMessageDialog.ShowMessage Message: $'''The saved eBIRForms XML file was not found.
+    Preparation cannot be sent for approval.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed2
+        EXIT Code: 0
+    END
+ELSE
+    SET PreparationStatusOutput TO $'''PREPARATION_FAILED_PDF_NOT_FOUND'''
+    Display.ShowMessageDialog.ShowMessage Message: $'''The merged review PDF was not found.
+    Preparation cannot be sent for approval.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed2
+    EXIT Code: 0
+END
+

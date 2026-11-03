@@ -1,8 +1,9 @@
 # Project documentation
 
-## Current checkpoint: 22 October 2026
+## Current checkpoint: 4 November 2026
 
-See the [issue/fix record, synchronization and validation](release-2026-10-22.md)
+See the [recent PAD fixes and verification limits](release-2026-11-04.md),
+then the [issue/fix record, synchronization and validation](release-2026-10-22.md)
 and [earlier validation results and known failures](release-2026-10-15.md).
 The full suite is not certified green.
 

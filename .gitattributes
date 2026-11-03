@@ -1,0 +1,3 @@
+# PAD confirmation literals contain significant LF; preserve exported bytes.
+docs/pad-actions/*.actions.txt -text
+docs/pad-actions/*.actions.txt whitespace=cr-at-eol,-blank-at-eof
