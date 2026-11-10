@@ -44,6 +44,10 @@ MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%FormSelectionText%{E
 UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'Fill-up\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
 DISABLE UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
 UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 2
+IF (UIAutomation.IfWindowContains.WindowContainsElement Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\''] InstantCheck: True) THEN
+    UIAutomation.Click.SimulateClick Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\'']
+END
 WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit']) FOR 60
 DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Radio Button 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
 UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit 2'] Text: FilingYear Mode: UIAutomation.PopulateTextMode.Replace
@@ -193,4 +197,3 @@ ELSE
     Preparation cannot be sent for approval.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed2
     EXIT Code: 0
 END
-

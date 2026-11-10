@@ -102,3 +102,7 @@ normal preparation-result service for that exact attempt, verified its prior
 ReadyToRun local identity, backed up and completed its journal, preserving the
 existing return files. Restarted the parent for the remaining queue. Do not retry
 this payroll filing until the existing return and print outputs are reconciled.
+
+## Extra profile-save popup (2026-11-10)
+A zero-return preparation stopped at action 46 waiting for the 1601Cv2018 input field. The visible blocking dialog said Background information saved/updated successfully. Dismissing it opened the expected form. Added a two-second wait and conditional main-window OK dismissal before the existing form wait; 180 actions imported without Designer errors, re-export matched, and save completed. Before/after full backups are under C:\TaxAutomation-work\Stage1_Prepare_1601C.*-profile-popup-20261110.txt. No saved return XML existed for the failed attempt. The expired attempt was preserved through the abandon service and the work order requeued with retry_preparation. Its failed-report journal was backed up and retired after server release. Preparation-only remains enabled. Fresh-run verification pending.
+
