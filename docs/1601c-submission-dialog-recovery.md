@@ -22,3 +22,9 @@ Before retrying the unconfirmed filing, reconcile BIR receipt/email and saved-re
 ## Worker restart follow-up
 
 A later restart stopped at preflight because the runtime profile patch could not be verified after the leftover eBIRForms window was closed. No new job was claimed by that blocked run. Ran the existing hash-verified Restore-eBIRFormsRuntimeIfMissing helper while PAD and eBIRForms were idle; 0619E, 0619F, 1601EQ, and 1601Cv2018 all reported PATCHED. Restarted only eBIR_Work_Order_Agent. It passed preflight, claimed an approved 0619E job, and refreshed HYPERV-EBIR's server heartbeat. The earlier unconfirmed 1601C attempt was not retried. Runtime restoration is local installation recovery, not proof that the external BIR transmission issue is resolved.
+
+## 0619E transmission diagnosis
+
+The next approved 0619E run displayed "Your Tax Return was not submitted online" and timed out waiting for success. No retry was made. Hidden sender files (ebfSFTP.exe, its config, WinSCP.exe and WinSCPnet.dll) match the original installer; they are not missing. The primary BIR dispatcher responds and supplies SFTP port 22. The configured host ebf2.bir.gov.ph resolves to 87.121.117.111, but a TCP connection to port 22 times out from both the Windows worker and server VM. This narrows the failure to shared networking or the remote service; it does not prove which side is responsible. No firewall, endpoint, credentials, or tax data were changed.
+
+The failed attempt's local result was set to SUBMISSION_UNCONFIRMED. Publish returned REPORTING_RECOVERY_REQUIRED with an underlying HTTP 409; its journal remains pending for reporting reconciliation. Do not rerun submission to resolve reporting. Check receipt evidence and reconcile the attempt before resuming it. A successful tax transmission has not been verified.
