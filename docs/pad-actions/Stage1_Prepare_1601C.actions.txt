@@ -1,0 +1,196 @@
+Scripting.RunPowershellScript.RunScript Script: $'''$p = Join-Path \'%OutputFolder%\' \'payroll.json\'
+if (Test-Path -LiteralPath $p) { Get-Content -LiteralPath $p -Raw } else { \'{\"Enabled\":false}\' }''' ScriptOutput=> PayrollJson
+Variables.ConvertJsonToCustomObject Json: PayrollJson CustomObject=> Payroll
+IF Payroll['Enabled'] = True THEN
+    IF (File.IfFile.Exists File: $'''C:\\eBIRForms\\savefile\\%TIN1%%TIN2%%TIN3%%TIN4%-%ExpectedFormNumber%-%FilingMonth%%FilingYear%.xml''') THEN
+        SET PreparationStatusOutput TO $'''FAILED_BUSINESS'''
+        SET PreparedPdfPath TO $''''''
+        SET SavedXmlPath TO $''''''
+        EXIT Code: 0
+    END
+END
+System.RunApplication.RunApplication ApplicationPath: $'''C:\\eBIRForms\\BIRForms.exe''' WorkingDirectory: $'''C:\\eBIRForms''' WindowStyle: System.ProcessWindowStyle.Normal ProcessId=> AppProcessId
+WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 15']) FOR 60
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit'] Text: TIN1 Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\''] Text: TIN2 Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\' 2'] Text: TIN3 Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\' 3'] Text: TIN4 Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Text 6'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%RDOCode%{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+WAIT 3
+UIAutomation.GetElementDetails Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 7'] AttributeName: $'''Own Text''' BringToFront: True AttributeValue=> ExistingRegisteredName
+IF IsEmpty(ExistingRegisteredName) THEN
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 2'] Text: RegisteredName Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 3'] Text: RegisteredAddress Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 4'] Text: ZipCode Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 6'] Text: TelephoneNumber Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 5'] Text: EmailAddress Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 8'] Text: LineOfBusiness Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Text 7'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%FormSelectionText%{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+    UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'Fill-up\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 14']) FOR 60
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 9'] Text: TIN1 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 10'] Text: TIN2 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 11'] Text: TIN3 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 12'] Text: TIN4 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 13'] Text: EmailAddress Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'Submit\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\' 3'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+END
+WAIT 1
+UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Text 7'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%FormSelectionText%{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'Fill-up\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit']) FOR 60
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Radio Button 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit 2'] Text: FilingYear Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Text'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%FilingMonth%{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Radio Button \'3rd\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+DISABLE SWITCH FilingQuarter
+    DISABLE CASE = 1
+        DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Radio Button \'1st\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    DISABLE CASE = 2
+        DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Radio Button \'2nd\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    DISABLE CASE = 3
+        DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Radio Button \'3rd\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    DISABLE CASE = 4
+        DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Radio Button \'4th\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    DISABLE DEFAULT
+        DISABLE SET PreparationStatus TO $'''INVALID_FILING_QUARTER'''
+        DISABLE Display.ShowMessageDialog.ShowMessage Title: $'''Invalid filing quarter''' Message: $'''FilingQuarter must be 1, 2, 3, or 4.
+The return was not prepared.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+        DISABLE EXIT Code: 0
+DISABLE END
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Radio Button \'No\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit 3'] Text: 0 Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Radio Button \'No\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Radio Button \'Private\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Radio Button \'No\' 3'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+IF Payroll['Enabled'] = True THEN
+    IF Payroll['HasWithholding'] = True THEN
+        UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll withheld yes']
+    END
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll item 14'] Text: Payroll['compensation'] Mode: UIAutomation.PopulateTextMode.Replace
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: True
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll item 15'] Text: Payroll['minimum_wage'] Mode: UIAutomation.PopulateTextMode.Replace
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: True
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll item 16'] Text: Payroll['mwe_benefits'] Mode: UIAutomation.PopulateTextMode.Replace
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: True
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll item 17'] Text: Payroll['benefits'] Mode: UIAutomation.PopulateTextMode.Replace
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: True
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll item 18'] Text: Payroll['de_minimis'] Mode: UIAutomation.PopulateTextMode.Replace
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: True
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll item 19'] Text: Payroll['contributions'] Mode: UIAutomation.PopulateTextMode.Replace
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: True
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll item 20'] Text: Payroll['other_exempt'] Mode: UIAutomation.PopulateTextMode.Replace
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: True
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll item 23'] Text: Payroll['below_threshold'] Mode: UIAutomation.PopulateTextMode.Replace
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: True
+    UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll item 25'] Text: Payroll['withheld'] Mode: UIAutomation.PopulateTextMode.Replace
+    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: True
+    IF Payroll['other_exempt_description'] <> $'''''' THEN
+        UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll other exemption'] Text: Payroll['other_exempt_description'] Mode: UIAutomation.PopulateTextMode.Replace
+    END
+END
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Control}({End})''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+WAIT 1
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Button \'Next\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+DISABLE WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Combo Box']) FOR 60
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Combo Box 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+DISABLE MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%ATCCode%{Enter}
+''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Pane \'BIR Form No. 2551Qv2018\' 4'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+DISABLE MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Control}({End})
+''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+DISABLE WAIT 1
+UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll Button Validate']
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'OK\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 1
+UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll Button Save']
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'OK\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 1
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'OK\' 3'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 1
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Button \'Prev\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Pane \'BIR Form No. 1601Cv2018\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Control}({End})
+''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+WAIT 1
+UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Payroll Button Print']
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Button \'OK\' 4'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 2
+UIAutomation.FocusWindow.Focus Window: appmask['Window \'BIR Form No. 1601Cv2018\'']['Title Bar']
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Control}({P})''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+UIAutomation.Click.Click Element: appmask['Window \'Internet Explorer - Print\'']['Combo Box \'Printer\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''Microsoft Print to PDF{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+UIAutomation.Click.Click Element: appmask['Window \'Internet Explorer - Print\'']['Button \'Print\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit \'File name:\'']) FOR 60
+UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit \'File name:\' 2'] Text: $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page1.pdf''' Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'Save\' 2']
+Scripting.RunPowershellScript.RunScript Script: $'''$p = \'%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page1.pdf\'
+$deadline = [DateTime]::UtcNow.AddSeconds(20)
+do {
+    if ((Test-Path -LiteralPath $p) -and (Get-Item -LiteralPath $p).Length -gt 0) { Write-Output \'READY\'; return }
+    Start-Sleep -Milliseconds 250
+} while ([DateTime]::UtcNow -lt $deadline)
+Write-Output \'MISSING\' ''' ScriptOutput=> PrintedPageState
+Text.Trim Text: PrintedPageState TrimOption: Text.TrimOption.Both TrimmedText=> PrintedPageState
+IF PrintedPageState <> $'''READY''' THEN
+    SET PreparationStatusOutput TO $'''PREPARATION_FAILED_PDF_NOT_FOUND'''
+    SET PreparedPdfPath TO $'''%''%'''
+    EXIT Code: 0
+END
+WAIT 2
+UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit 4'] Text: 2 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+WAIT 2
+DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['List'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Control}({P})''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+UIAutomation.Click.Click Element: appmask['Window \'Internet Explorer - Print\'']['Combo Box \'Printer\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''Microsoft Print to PDF{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+UIAutomation.Click.Click Element: appmask['Window \'Internet Explorer - Print\'']['Button \'Print\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit \'File name:\' 3']) FOR 60
+UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit \'File name:\' 4'] Text: $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page2.pdf''' Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'Save\' 3']
+Scripting.RunPowershellScript.RunScript Script: $'''$p = \'%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page2.pdf\'
+$deadline = [DateTime]::UtcNow.AddSeconds(20)
+do {
+    if ((Test-Path -LiteralPath $p) -and (Get-Item -LiteralPath $p).Length -gt 0) { Write-Output \'READY\'; return }
+    Start-Sleep -Milliseconds 250
+} while ([DateTime]::UtcNow -lt $deadline)
+Write-Output \'MISSING\' ''' ScriptOutput=> PrintedPageState
+Text.Trim Text: PrintedPageState TrimOption: Text.TrimOption.Both TrimmedText=> PrintedPageState
+IF PrintedPageState <> $'''READY''' THEN
+    SET PreparationStatusOutput TO $'''PREPARATION_FAILED_PDF_NOT_FOUND'''
+    SET PreparedPdfPath TO $'''%''%'''
+    EXIT Code: 0
+END
+WAIT 3
+Pdf.MergeFiles PDFFiles: $'''\"%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page2.pdf\",\"%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page1.pdf\"''' MergedPDFPath: $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_COMPLETE.pdf''' IfFileExists: Pdf.IfFileExists.Overwrite PasswordDelimiter: $''',''' MergedPDF=> MergedPDF
+DISABLE MouseAndKeyboard.MoveMouseToImage.ClickImage Images: [imgrepo['Image']] SearchForImageOn: MouseAndKeyboard.SearchTarget.EntireScreen MousePositionOnImage: MouseAndKeyboard.PositionOnImage.MiddleCenter OffsetX: 0 OffsetY: 0 Tolerance: 10 MovementStyle: MouseAndKeyboard.MovementStyle.Instant Occurence: 1 Timeout: 5 ClickType: MouseAndKeyboard.ClickType.LeftClick SecondsBeforeClick: 0 SearchAlgorithm: MouseAndKeyboard.ImageFinderAlgorithm.Legacy X=> X Y=> Y
+DISABLE MouseAndKeyboard.MoveMouseToImage.ClickImage Images: [imgrepo['Image_2']] SearchForImageOn: MouseAndKeyboard.SearchTarget.EntireScreen MousePositionOnImage: MouseAndKeyboard.PositionOnImage.MiddleCenter OffsetX: 0 OffsetY: 0 Tolerance: 10 MovementStyle: MouseAndKeyboard.MovementStyle.Instant Occurence: 1 Timeout: 5 ClickType: MouseAndKeyboard.ClickType.LeftClick SecondsBeforeClick: 0 SearchAlgorithm: MouseAndKeyboard.ImageFinderAlgorithm.Legacy X=> X2 Y=> Y2
+WAIT 2
+UIAutomation.CloseWindow.Close Window: appmask['Window \'BIR Form No. 1601Cv2018\'']['Title Bar 2']
+SET PreparedPdfPath TO $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_COMPLETE.pdf'''
+SET SavedXmlPath TO $'''C:\\eBIRForms\\savefile\\%TIN1%%TIN2%%TIN3%%TIN4%-%ExpectedFormNumber%-%FilingMonth%%FilingYear%.xml'''
+IF (File.IfFile.Exists File: PreparedPdfPath) THEN
+    IF (File.IfFile.Exists File: SavedXmlPath) THEN
+        SET PreparationStatusOutput TO $'''AWAITING_SUBMISSION_APPROVAL'''
+        EXIT Code: 0
+    ELSE
+        SET PreparationStatusOutput TO $'''PREPARATION_FAILED_XML_NOT_FOUND'''
+        Display.ShowMessageDialog.ShowMessage Message: $'''The saved eBIRForms XML file was not found.
+    Preparation cannot be sent for approval.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed2
+        EXIT Code: 0
+    END
+ELSE
+    SET PreparationStatusOutput TO $'''PREPARATION_FAILED_PDF_NOT_FOUND'''
+    Display.ShowMessageDialog.ShowMessage Message: $'''The merged review PDF was not found.
+    Preparation cannot be sent for approval.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed2
+    EXIT Code: 0
+END
+
