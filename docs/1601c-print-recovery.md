@@ -78,3 +78,27 @@ to test preparation.
 Validation: PowerShell parser checks passed for the live and repository bridge;
 a live Poll returned the preparation-only message with no task. Successful fresh
 preparation verified that the parent can continue preparation with Stage 2 paused.
+
+## Follow-up filename truncation repair
+
+The next 1601C payroll run stopped cleanly with PREPARATION_FAILED_PDF_NOT_FOUND.
+The page-one PDF existed under the truncated name CLOUDPU.pdf; the exact-path guard
+prevented publishing it. Changed only the two Save Print Output As filename actions
+from normal keyboard population to SimulatePopulateTextField (direct value entry).
+The flow retains 176 actions, both save buttons and both readiness guards.
+Copied-back full export matched the candidate after newline normalization; Designer
+saved and returned Ready with no errors. Backups are local under
+C:\TaxAutomation-work\Stage1_Prepare_1601C.before-filename-20261110.txt and
+Stage1_Prepare_1601C.after-filename-20261110.txt.
+
+The failed payroll attempt was already recorded FAILED with its execution slot
+released and local journal Completed. Preserved its journal and existing XML/PDF;
+did not reset or replay that filing. Restarted the parent in preparation-only mode.
+That payroll filing still requires separate print-output recovery before approval.
+
+The next restart encountered the same CLOUDPUFF order requeued while its XML already
+existed. Start refused before any child ran. Recorded FAILED_BUSINESS through the
+normal preparation-result service for that exact attempt, verified its prior
+ReadyToRun local identity, backed up and completed its journal, preserving the
+existing return files. Restarted the parent for the remaining queue. Do not retry
+this payroll filing until the existing return and print outputs are reconciled.

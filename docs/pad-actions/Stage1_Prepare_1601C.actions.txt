@@ -129,7 +129,7 @@ UIAutomation.Click.Click Element: appmask['Window \'Internet Explorer - Print\''
 MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''Microsoft Print to PDF{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
 UIAutomation.Click.Click Element: appmask['Window \'Internet Explorer - Print\'']['Button \'Print\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
 WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit \'File name:\'']) FOR 60
-UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit \'File name:\' 2'] Text: $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page1.pdf''' Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit \'File name:\' 2'] Text: $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page1.pdf''' Mode: UIAutomation.PopulateTextMode.Replace
 UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'Save\' 2']
 Scripting.RunPowershellScript.RunScript Script: $'''$p = \'%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page1.pdf\'
 $deadline = [DateTime]::UtcNow.AddSeconds(20)
@@ -154,7 +154,7 @@ UIAutomation.Click.Click Element: appmask['Window \'Internet Explorer - Print\''
 MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''Microsoft Print to PDF{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
 UIAutomation.Click.Click Element: appmask['Window \'Internet Explorer - Print\'']['Button \'Print\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
 WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit \'File name:\' 3']) FOR 60
-UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit \'File name:\' 4'] Text: $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page2.pdf''' Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit \'File name:\' 4'] Text: $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page2.pdf''' Mode: UIAutomation.PopulateTextMode.Replace
 UIAutomation.Click.SimulateClick Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'Save\' 3']
 Scripting.RunPowershellScript.RunScript Script: $'''$p = \'%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page2.pdf\'
 $deadline = [DateTime]::UtcNow.AddSeconds(20)
