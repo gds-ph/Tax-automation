@@ -19,3 +19,6 @@ Local full backups (not committed because UI metadata may contain taxpayer scree
 - C:\TaxAutomation-work\Stage2_Submit_1601C.after-dialog-fix-20261110.txt
 
 Before retrying the unconfirmed filing, reconcile BIR receipt/email and saved-return state. Do not automatically submit it again.
+## Worker restart follow-up
+
+A later restart stopped at preflight because the runtime profile patch could not be verified after the leftover eBIRForms window was closed. No new job was claimed by that blocked run. Ran the existing hash-verified Restore-eBIRFormsRuntimeIfMissing helper while PAD and eBIRForms were idle; 0619E, 0619F, 1601EQ, and 1601Cv2018 all reported PATCHED. Restarted only eBIR_Work_Order_Agent. It passed preflight, claimed an approved 0619E job, and refreshed HYPERV-EBIR's server heartbeat. The earlier unconfirmed 1601C attempt was not retried. Runtime restoration is local installation recovery, not proof that the external BIR transmission issue is resolved.
