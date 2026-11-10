@@ -55,3 +55,26 @@ Full local exports (contain UI screenshot metadata; excluded from Git):
 The action-only snapshot at pad-actions/Stage1_Prepare_1601C.actions.txt is for
 review; importing it requires the corresponding local UI repository.
 Taxpayer PDFs, XML, journal tokens and embedded screenshots are not committed.
+
+## Fresh unattended verification — 10 November 2026
+
+Restarted one parent worker with PreparationOnly enabled after the user selected
+preparation-only testing. A fresh October 2026 1601C zero preparation completed
+without manual intervention: page-one save, page-two navigation and save, merge,
+and publication all passed. The server marked attempt
+3d108449-7fbd-4735-afb6-c86ac4609657 SUCCEEDED and the work order
+AWAITING_SUBMISSION_APPROVAL. This supersedes the earlier fresh-run verification
+limit above. It does not certify other forms or submission flows.
+
+The parent remains running in preparation-only mode. Stage2Bridge Poll returns
+HasTask=false before claiming new work when worker.json PreparationOnly is present
+and not boolean false. Existing active/reporting/archive recovery checks run first;
+existing approvals and journals are retained. This operational flag was enabled
+only in the local worker configuration (credentials are not committed). To resume
+submissions, obtain user authorization, stop the parent, set PreparationOnly to
+boolean false, then restart one parent. Do not change the approved queue merely
+to test preparation.
+
+Validation: PowerShell parser checks passed for the live and repository bridge;
+a live Poll returned the preparation-only message with no task. Successful fresh
+preparation verified that the parent can continue preparation with Stage 2 paused.

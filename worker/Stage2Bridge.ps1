@@ -1,4 +1,4 @@
-﻿# Windows PowerShell 5.1+. Runs inside the automation VM alongside PAD.
+# Windows PowerShell 5.1+. Runs inside the automation VM alongside PAD.
 # This bridge transfers tasks/results; it never launches PAD or submits a return.
 [CmdletBinding()]
 param(
@@ -136,6 +136,12 @@ if ($Action -eq 'Poll') {
     if ($null -ne $journal -and $journal.Phase -eq 'Completed') { Save-SubmissionReceipt $journal }
     if ($null -ne $journal -and $journal.Phase -in @('Running','Publishing')) {
         @{ HasTask=$false; RecoveryRequired=$true; Message='An earlier task was started. Do not rerun Tax-Filing. Resume reporting or request operator review.' } | ConvertTo-Json
+        return
+    }
+    # Operator-selected preparation-only mode: retain journals and approvals, claim no Stage 2 work.
+    if ($config.PSObject.Properties.Name -contains 'PreparationOnly' -and $config.PreparationOnly -ne $false) {
+        @{ HasTask=$false; RecoveryRequired=$false; Message='Stage 2 paused: preparation-only mode.' } | ConvertTo-Json
+        $pollCompleted = $true
         return
     }
     if ($null -eq $journal -or $journal.Phase -eq 'Completed') {
