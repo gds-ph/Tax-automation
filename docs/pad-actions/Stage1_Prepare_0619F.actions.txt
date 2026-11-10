@@ -1,0 +1,86 @@
+System.RunApplication.RunApplication ApplicationPath: $'''C:\\eBIRForms\\BIRForms.exe''' WorkingDirectory: $'''C:\\eBIRForms''' WindowStyle: System.ProcessWindowStyle.Normal ProcessId=> AppProcessId
+WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 16']) FOR 60
+UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit'] Text: TIN1 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\''] Text: TIN2 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\' 2'] Text: TIN3 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\' 3'] Text: TIN4 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Text 6'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%RDOCode%{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+WAIT 3
+UIAutomation.GetElementDetails Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 7'] AttributeName: $'''Own Text''' BringToFront: True AttributeValue=> ExistingRegisteredName
+IF IsEmpty(ExistingRegisteredName) THEN
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 2'] Text: RegisteredName Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 3'] Text: RegisteredAddress Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 4'] Text: ZipCode Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 6'] Text: TelephoneNumber Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 5'] Text: EmailAddress Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 8'] Text: LineOfBusiness Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Text 7 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    MouseAndKeyboard.SendKeys.FocusAndSendKeysByControl Control: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Text 7 2'] TextToSend: $'''{Home}%FormSelectionText%{Tab}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: False
+    UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'Fill-up\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 14']) FOR 60
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 9'] Text: TIN1 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 10'] Text: TIN2 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 11'] Text: TIN3 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 12'] Text: TIN4 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit 13'] Text: EmailAddress Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+    UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'Submit\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\' 3'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+END
+WAIT 1
+UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Text 7 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeysByControl Control: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Text 7 2'] TextToSend: $'''{Home}%FormSelectionText%{Tab}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: False
+UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'Fill-up\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Button \'OK\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 0619-F\'']['Edit 2']) FOR 60
+UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'BIR Form No. 0619-F\'']['Edit'] Text: FilingYear Mode: UIAutomation.PopulateTextMode.Replace
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Button \'Open\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%FilingMonth%{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Radio Button'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Radio Button \'No\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Radio Button 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 1
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Button \'Validate\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Button \'OK\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 1
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Button \'Save\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Button \'OK\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 1
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Button \'OK\' 3'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 1
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Pane \'BIR Form No. 0619-F\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''^{End}
+''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+WAIT 1
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Button \'Print\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 2
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Button \'OK\' 4'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+UIAutomation.FocusWindow.Focus Window: appmask['Window \'BIR Form No. 0619-F\'']['Title Bar']
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Control}({P})''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+UIAutomation.Click.Click Element: appmask['Window \'Internet Explorer - Print\'']['Combo Box \'Printer\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''Microsoft Print to PDF{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+UIAutomation.Click.Click Element: appmask['Window \'Internet Explorer - Print\'']['Button \'Print\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 0619-F\'']['Edit \'File name:\'']) FOR 60
+UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'BIR Form No. 0619-F\'']['Edit \'File name:\' 2'] Text: $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_COMPLETE.pdf''' Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
+UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 0619-F\'']['Button \'Save\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+WAIT 2
+UIAutomation.CloseWindow.Close Window: appmask['Window \'BIR Form No. 0619-F\'']['Title Bar 2']
+SET PreparedPdfPath TO $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_COMPLETE.pdf'''
+SET SavedXmlPath TO $'''C:\\eBIRForms\\savefile\\%TIN1%%TIN2%%TIN3%%TIN4%-0619F-%FilingMonth%%FilingYear%WB.xml'''
+IF (File.IfFile.Exists File: PreparedPdfPath) THEN
+    IF (File.IfFile.Exists File: SavedXmlPath) THEN
+        SET PreparationStatusOutput TO $'''AWAITING_SUBMISSION_APPROVAL'''
+        EXIT Code: 0
+    ELSE
+        SET PreparationStatusOutput TO $'''PREPARATION_FAILED_XML_NOT_FOUND'''
+        Display.ShowMessageDialog.ShowMessage Message: $'''The saved eBIRForms XML file was not found.
+    Preparation cannot be sent for approval.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed2
+        EXIT Code: 0
+    END
+ELSE
+    SET PreparationStatusOutput TO $'''PREPARATION_FAILED_PDF_NOT_FOUND'''
+    Display.ShowMessageDialog.ShowMessage Message: $'''The merged review PDF was not found.
+    Preparation cannot be sent for approval.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed2
+    EXIT Code: 0
+END
+

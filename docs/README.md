@@ -1,6 +1,8 @@
 # Project documentation
 
-## Current checkpoint: 4 November 2026
+## Current checkpoint: 10 November 2026
+
+Latest: [0619F form-selection timeout repair and worker recovery](0619f-form-selection-repair.md).
 
 See the [recent PAD fixes and verification limits](release-2026-11-04.md),
 then the [issue/fix record, synchronization and validation](release-2026-10-22.md)
