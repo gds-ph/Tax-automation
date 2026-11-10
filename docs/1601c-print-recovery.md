@@ -106,3 +106,6 @@ this payroll filing until the existing return and print outputs are reconciled.
 ## Extra profile-save popup (2026-11-10)
 A zero-return preparation stopped at action 46 waiting for the 1601Cv2018 input field. The visible blocking dialog said Background information saved/updated successfully. Dismissing it opened the expected form. Added a two-second wait and conditional main-window OK dismissal before the existing form wait; 180 actions imported without Designer errors, re-export matched, and save completed. Before/after full backups are under C:\TaxAutomation-work\Stage1_Prepare_1601C.*-profile-popup-20261110.txt. No saved return XML existed for the failed attempt. The expired attempt was preserved through the abandon service and the work order requeued with retry_preparation. Its failed-report journal was backed up and retired after server release. Preparation-only remains enabled. Fresh-run verification pending.
 
+
+Fresh-run verification passed: attempt 1a5a613d-a65a-4d59-b230-cb03cdabdab1 completed SUCCEEDED; the server recorded AWAITING_SUBMISSION_APPROVAL with both PDF and XML. The flow passed its former form-open timeout and generated the prepared outputs. No submission was performed.
+
