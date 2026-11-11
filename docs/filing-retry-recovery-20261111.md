@@ -12,7 +12,7 @@ Action-only snapshots are under docs/pad-actions. Full before/after exports rema
 
 ## Recovery evidence
 
-The 1601C retry transmitted successfully, but the existing post-submit path still waited for a terms-screen control that resend does not show. Observed the full eBIRForms Submit Successful! dialog, saved its full-window screenshot, converted the capture from JPEG to PNG without changing its content, and published the existing attempt's success evidence through the worker API. Retried result reporting only, never submission. Server acknowledged SUBMITTED_WAITING_FOR_CONFIRMATION and Stage2Bridge archived the XML. The final dropdown/resend improvement was subsequently saved. Its new complete submission path still requires a monitored approved retry; the earlier 1601C success was recovered by publishing observed evidence.
+The 1601C retry transmitted successfully, but the existing post-submit path still waited for a terms-screen control that resend does not show. Observed the full eBIRForms Submit Successful! dialog, saved its full-window screenshot, converted the capture from JPEG to PNG without changing its content, and published the existing attempt's success evidence through the worker API. Retried result reporting only, never submission. Server acknowledged SUBMITTED_WAITING_FOR_CONFIRMATION and Stage2Bridge archived the XML. The final dropdown/resend improvement was subsequently saved. Its new complete normal-submission path subsequently passed the approved corrected-PDF retry described below; the earlier resend success was recovered by publishing observed evidence.
 
 For the preparation failure, verified the truncated-name PDF contained only one page. Preserved the PDF and moved the exact unsubmitted XML to a hash-verified local recovery backup before re-preparation. Reclassified the reviewed existing-file business failure as the original system/print failure, added an audit event, and used retry_preparation to queue the unchanged snapshot. This prepares a PDF for review; it does not approve a newly prepared return for submission.
 
@@ -22,7 +22,7 @@ Restored the extracted eBIRForms runtime while idle using the existing hash-veri
 
 - 1601C submission: server success recorded; awaiting receipt confirmation at that observation.
 - 0619E: repaired flow completed a monitored retry end-to-end; full success screenshot uploaded and server recorded SUBMITTED_WAITING_FOR_CONFIRMATION.
-- Failed preparation: regeneration completed, but verification found two copies of logical page 1. Recovered logical page 2 directly from the unchanged saved return and merged page 1 followed by page 2 and its continuation. All three physical pages were rendered and inspected. The corrected PDF remains local pending approval to replace the prior approved PDF and retry. The subsequent submission attempt reported SAVED_RETURN_ROW_NOT_FOUND, before opening/submitting the return; its history is preserved.
+- Failed preparation: regeneration completed, but verification found two copies of logical page 1. Recovered logical page 2 directly from the unchanged saved return and merged page 1 followed by page 2 and its continuation. All three physical pages were rendered and inspected. The corrected PDF was subsequently approved, installed and submitted successfully as described below. The subsequent submission attempt reported SAVED_RETURN_ROW_NOT_FOUND, before opening/submitting the return; its history is preserved.
 
 This is an operator-authorized recovery, not an unlimited automatic retry loop. Unconfirmed outcomes still require evidence review before another submission.
 
@@ -43,3 +43,11 @@ Full before/after exports are retained under C:\TaxAutomation-work:
 - Stage2_Submit_0619E.before-retry-20261111.txt and .after-retry-20261111.txt
 
 The corrected taxpayer PDF, original artifacts, XML backup, UI repositories, credentials and journals are intentionally not committed to Git. Action snapshots require their associated saved PAD UI repositories; they are not standalone import packages.
+
+## Corrected-PDF approval and successful retry
+
+After explicit user approval on 2026-11-11, installed the corrected three-page PDF as a new stored artifact and updated the approval to its exact SHA-256. Preserved the old PDF and all attempt history. Recorded PDF replacement and approval audit events; the amount due remained PHP 775.65. Used the normal saved-return lookup recovery service to queue the reviewed failure.
+
+The new 1601C attempt completed end-to-end through the repaired flow at 06:15:26 UTC. Verified the full-screen eBIRForms "Submit Successful. Subject to validation by BIR." evidence, server attempt SUCCEEDED, approval SUBMITTED_WAITING_FOR_CONFIRMATION, and archived XML plus archive manifest. The local Stage2 journal is Completed. This confirms transmission and evidence capture, not receipt confirmation or payment.
+
+A temporary form-scoped worker configuration selected this retry without changing the main worker configuration. The parent worker continued processing its existing queue afterward. Taxpayer artifacts and temporary credential-bearing configuration remain local and are excluded from Git.
