@@ -19,6 +19,7 @@ FORM_CATALOG = {
     '1600VT': ('Monthly Remittance Return of Value-Added Tax Withheld', 'MONTHLY'),
     '0619F': ('Monthly Remittance Form of Final Income Taxes Withheld', 'MONTHLY'),
     '0619E': ('Monthly Remittance of Expanded Withholding Tax', 'MONTHLY'),
+    '1601FQ': ('Quarterly Remittance Return of Final Income Taxes Withheld', 'QUARTERLY'),
     '1601EQ': ('Quarterly Expanded Withholding Tax Return', 'QUARTERLY'),
     '1604E': ('Annual Information Return — Expanded Withholding Tax', 'ANNUAL'),
     '2551Q': ('Quarterly Percentage Tax Return', 'QUARTERLY'),

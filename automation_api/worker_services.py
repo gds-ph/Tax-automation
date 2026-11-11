@@ -74,10 +74,10 @@ def payload(attempt):
         pdf = f"{inputs['ClientNameSafe']}_2550Qv2024_{inputs['FilingYear']}_Q{inputs['FilingQuarter']}_COMPLETE.pdf"
     if form['expected_form_number'] == '0619F':
         name += 'WB'
-    if form['expected_form_number'] == '1601EQ':
+    if form['expected_form_number'] in {'1601EQ', '1601FQ'}:
         inputs['FilingMonth'] = ''
         period = inputs['FilingYear'] + 'Q' + inputs['FilingQuarter']
-        name = ''.join(inputs[key] for key in ('TIN1','TIN2','TIN3','TIN4')) + '-1601EQ-' + period
+        name = ''.join(inputs[key] for key in ('TIN1','TIN2','TIN3','TIN4')) + '-' + form['expected_form_number'] + '-' + period
     if form['expected_form_number'] == '1601Cv2018' and not filing['zero_filing']:
         from workorders.payroll_1601c import normalize, totals
         inputs['Payroll'] = normalize(filing['form_data'])
@@ -107,7 +107,7 @@ def valid_automation_keys(keys, allowed):
 
 def return_identity_fields(order):
     fields = ('tin1', 'tin2', 'tin3', 'tin4', 'expected_form_number', 'filing_year')
-    if order.expected_form_number == '1601EQ':
+    if order.expected_form_number in {'1601EQ', '1601FQ'}:
         return fields + ('filing_quarter',)
     return fields + (('filing_month',) if order.filing_month is not None else ('year_end_month', 'filing_quarter'))
 
@@ -123,7 +123,7 @@ def claim(*, agent, request_id, automation_keys):
     _active(agent)
     from .cancellation import lock_execution, cleanup_pending
     lock_execution()
-    if not valid_automation_keys(automation_keys, {'PREPARE_2551QV2018_ZERO', 'PREPARE_1601CV2018_ZERO', 'PREPARE_1601CV2018_PAYROLL', 'PREPARE_1601EQ_ZERO', 'PREPARE_1601EQ_SUPPLIERS', 'PREPARE_0619F_ZERO', 'PREPARE_0619E_ZERO', 'PREPARE_0619E_SUPPLIERS', 'PREPARE_1600VT_ZERO', 'PREPARE_2550QV2024_ZERO'}):
+    if not valid_automation_keys(automation_keys, {'PREPARE_2551QV2018_ZERO', 'PREPARE_1601CV2018_ZERO', 'PREPARE_1601CV2018_PAYROLL', 'PREPARE_1601EQ_ZERO', 'PREPARE_1601FQ_ZERO', 'PREPARE_1601EQ_SUPPLIERS', 'PREPARE_0619F_ZERO', 'PREPARE_0619E_ZERO', 'PREPARE_0619E_SUPPLIERS', 'PREPARE_1600VT_ZERO', 'PREPARE_2550QV2024_ZERO'}):
         raise WorkerError('unsupported_automation', 'Advertise supported preparation automation keys.', 400)
     existing=PreparationAttempt.objects.select_related('work_order','snapshot').filter(pk=request_id).first()
     if existing:

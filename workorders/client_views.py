@@ -49,6 +49,10 @@ class PreparationForm(forms.Form):
             self.fields['filing_month'].choices = [('', 'Choose a month')] + [(m, f'{m:02d}') for m in (1, 2, 4, 5, 7, 8, 10, 11)]
         if form_code == '0619F':
             self.fields['zero_filing_approved'].label = 'I confirm a non-amended private-agent 0619-F return with no final income tax withheld, remittance or penalties.'
+        if form_code == '1601FQ':
+            self.fields.pop('auto_approve', None)
+            self.fields['filing_mode'].choices = [('ZERO', 'Zero filing')]
+            self.fields['zero_filing_approved'].label = 'I confirm an original private-agent 1601-FQ return with no withholding, remittances, credits, penalties, treaty claims or attachments.'
         if form_code == '1601EQ':
             self.fields['zero_filing_approved'].label = 'I confirm a non-amended private-agent return with no withholding, remittances, credits, penalties or attachments.'
         for field in self.fields.values():

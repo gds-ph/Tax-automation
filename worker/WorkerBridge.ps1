@@ -26,7 +26,7 @@ $automationKeys = @('PREPARE_2551QV2018_ZERO')
 if ($config.PSObject.Properties.Name -contains 'PreparationAutomationKeys') {
     $automationKeys = @($config.PreparationAutomationKeys)
 }
-$allowedAutomationKeys = @('PREPARE_2551QV2018_ZERO','PREPARE_1601CV2018_ZERO','PREPARE_1601CV2018_PAYROLL','PREPARE_1601EQ_ZERO','PREPARE_1601EQ_SUPPLIERS','PREPARE_0619F_ZERO','PREPARE_0619E_ZERO','PREPARE_0619E_SUPPLIERS','PREPARE_1600VT_ZERO','PREPARE_2550QV2024_ZERO')
+$allowedAutomationKeys = @('PREPARE_2551QV2018_ZERO','PREPARE_1601CV2018_ZERO','PREPARE_1601CV2018_PAYROLL','PREPARE_1601EQ_ZERO','PREPARE_1601FQ_ZERO','PREPARE_1601EQ_SUPPLIERS','PREPARE_0619F_ZERO','PREPARE_0619E_ZERO','PREPARE_0619E_SUPPLIERS','PREPARE_1600VT_ZERO','PREPARE_2550QV2024_ZERO')
 if ($automationKeys.Count -eq 0 -or @($automationKeys | Where-Object { $_ -notin $allowedAutomationKeys }).Count -gt 0 -or @($automationKeys | Select-Object -Unique).Count -ne $automationKeys.Count) {
     throw 'Invalid configured automation keys.'
 }

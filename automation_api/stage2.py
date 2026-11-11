@@ -84,7 +84,7 @@ def approve(*, actor, order_id, version, digest, comment='', submission_enabled=
         raise ValidationError('The filing changed. Reload and review the PDF again.')
     if submission_enabled and not order.live_submission_available:
         raise ValidationError('Live submission for this form is not enabled. Complete the worker integration first.')
-    if order.expected_form_number in {'1601Cv2018', '1601EQ', '0619F', '0619E', '1600VTv2018', '2550Qv2024'} and not submission_enabled:
+    if order.expected_form_number in {'1601Cv2018', '1601EQ', '1601FQ', '0619F', '0619E', '1600VTv2018', '2550Qv2024'} and not submission_enabled:
         raise ValidationError('Open-and-validate tests for this form run separately from the approval queue.')
     existing = Stage2Approval.objects.filter(work_order=order).first()
     if existing:

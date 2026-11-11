@@ -121,7 +121,7 @@ class WorkOrderForm(forms.Form):
         if instance and instance.expected_form_number == '2550Qv2024':
             self.fields.pop('atc_code', None)
             self.fields['taxpayer_classification'] = forms.ChoiceField(choices=[(x, x.title()) for x in ('MICRO', 'SMALL', 'MEDIUM', 'LARGE')], initial=instance.form_data.get('taxpayer_classification', 'MICRO'))
-        if instance and instance.expected_form_number == '1601EQ':
+        if instance and instance.expected_form_number in {'1601EQ', '1601FQ'}:
             self.fields.pop('atc_code', None)
             self.fields['zero_filing_approved'].label = 'I confirm a non-amended private-agent return with no withholding, remittances, credits, penalties or attachments.'
         profiles = ClientFilingProfile.objects.select_related("client", "form_definition")
@@ -152,7 +152,7 @@ class WorkOrderForm(forms.Form):
         if self.instance and self.instance.expected_form_number == '2550Qv2024':
             data['form_data'] = {'taxpayer_classification': self.cleaned_data['taxpayer_classification']}
             return data
-        if self.monthly or (self.instance and self.instance.expected_form_number == '1601EQ'):
+        if self.monthly or (self.instance and self.instance.expected_form_number in {'1601EQ', '1601FQ'}):
             data['form_data'] = {}
             return data
         atc = self.cleaned_data["atc_code"]

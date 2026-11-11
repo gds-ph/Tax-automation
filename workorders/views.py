@@ -36,6 +36,7 @@ def _orders():
     return WorkOrder.objects.filter(Q(form_code='2551Q', expected_form_number='2551Qv2018') |
                                     Q(form_code='1601C', expected_form_number='1601Cv2018') |
                                     Q(form_code='1601EQ', expected_form_number='1601EQ') |
+                                    Q(form_code='1601FQ', expected_form_number='1601FQ') |
                                     Q(form_code='0619F', expected_form_number='0619F') |
                                     Q(form_code='0619E', expected_form_number='0619E') |
                                     Q(form_code='1600VT', expected_form_number='1600VTv2018') |
@@ -215,7 +216,7 @@ SUBMITTED_STATES = {'SUBMITTED_WAITING_FOR_CONFIRMATION', 'BIR_RECEIPT_CONFIRMED
 
 
 OVERVIEW_RANGES = {'today': 0, '7d': 6, '30d': 29}
-OVERVIEW_FORMS = {code: code for code in ('0619E', '0619F', '1600VT', '1601C', '1601EQ', '2550Q', '2551Q')}
+OVERVIEW_FORMS = {code: code for code in ('0619E', '0619F', '1600VT', '1601C', '1601EQ', '1601FQ', '2550Q', '2551Q')}
 
 
 def _overview_range(request):
