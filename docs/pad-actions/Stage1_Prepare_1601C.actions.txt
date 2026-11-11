@@ -149,8 +149,7 @@ IF PrintedPageState <> $'''READY''' THEN
     EXIT Code: 0
 END
 WAIT 2
-UIAutomation.PopulateTextField.PopulateTextField TextField: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit 4'] Text: 2 Mode: UIAutomation.PopulateTextMode.Replace ClickType: UIAutomation.PopulateMouseClickType.SingleClick
-MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+MouseAndKeyboard.SendKeys.FocusAndSendKeysByControl Control: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit 4'] TextToSend: $'''{Control}({A})2{Tab}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
 WAIT 2
 DISABLE UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['List'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
 MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Control}({P})''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
@@ -174,7 +173,7 @@ IF PrintedPageState <> $'''READY''' THEN
     EXIT Code: 0
 END
 WAIT 3
-Pdf.MergeFiles PDFFiles: $'''\"%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page2.pdf\",\"%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page1.pdf\"''' MergedPDFPath: $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_COMPLETE.pdf''' IfFileExists: Pdf.IfFileExists.Overwrite PasswordDelimiter: $''',''' MergedPDF=> MergedPDF
+Pdf.MergeFiles PDFFiles: $'''\"%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page1.pdf\",\"%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_Page2.pdf\"''' MergedPDFPath: $'''%OutputFolder%\\%ClientNameSafe%_%FormCode%_%FilingYear%_%FilingMonth%_COMPLETE.pdf''' IfFileExists: Pdf.IfFileExists.Overwrite PasswordDelimiter: $''',''' MergedPDF=> MergedPDF
 DISABLE MouseAndKeyboard.MoveMouseToImage.ClickImage Images: [imgrepo['Image']] SearchForImageOn: MouseAndKeyboard.SearchTarget.EntireScreen MousePositionOnImage: MouseAndKeyboard.PositionOnImage.MiddleCenter OffsetX: 0 OffsetY: 0 Tolerance: 10 MovementStyle: MouseAndKeyboard.MovementStyle.Instant Occurence: 1 Timeout: 5 ClickType: MouseAndKeyboard.ClickType.LeftClick SecondsBeforeClick: 0 SearchAlgorithm: MouseAndKeyboard.ImageFinderAlgorithm.Legacy X=> X Y=> Y
 DISABLE MouseAndKeyboard.MoveMouseToImage.ClickImage Images: [imgrepo['Image_2']] SearchForImageOn: MouseAndKeyboard.SearchTarget.EntireScreen MousePositionOnImage: MouseAndKeyboard.PositionOnImage.MiddleCenter OffsetX: 0 OffsetY: 0 Tolerance: 10 MovementStyle: MouseAndKeyboard.MovementStyle.Instant Occurence: 1 Timeout: 5 ClickType: MouseAndKeyboard.ClickType.LeftClick SecondsBeforeClick: 0 SearchAlgorithm: MouseAndKeyboard.ImageFinderAlgorithm.Legacy X=> X2 Y=> Y2
 WAIT 2

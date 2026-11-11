@@ -203,7 +203,7 @@ if ($Action -eq 'Start') {
     if ($claim.AutomationKey -eq 'SUBMIT_0619E') {
         $helperRoot = Split-Path -Parent $ArchiveHelperPath
         . ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $helperRoot 'Test-0619EPreparedXml.ps1'))))
-        Assert-0619EPreparedXml -Path $claim.ExpectedXmlPath -Inputs $claim.Inputs
+        Assert-0619EPreparedXml -Path $claim.ExpectedXmlPath -Inputs $claim.Inputs -AllowFailedSubmissionRetry
     }
     if ($claim.AutomationKey -eq 'SUBMIT_1601CV2018' -and $null -ne $claim.Inputs.Payroll) {
         $helperRoot = Split-Path -Parent $ArchiveHelperPath

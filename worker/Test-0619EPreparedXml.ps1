@@ -1,5 +1,5 @@
 function Assert-0619EPreparedXml {
-    param([string]$Path, $Inputs)
+    param([string]$Path, $Inputs, [switch]$AllowFailedSubmissionRetry)
     $file = Get-Item -LiteralPath $Path -ErrorAction Stop
     if ($file.Length -gt 1MB) { throw '0619E XML exceeds the expected size.' }
     $text = [IO.File]::ReadAllText($file.FullName)
@@ -25,6 +25,12 @@ function Assert-0619EPreparedXml {
         if ($sum -ne $amount) { throw '0619E supplier total does not reconcile.' }
         $expected['frm0619E:optWithheld:N']='false'; $expected['frm0619E:optWithheld:Y']='true'
         foreach ($field in @('14','16','18')) { $expected['frm0619E:txtTax'+$field]=$amount.ToString('0.00', [Globalization.CultureInfo]::InvariantCulture) }
+    }
+    # Only the approved Stage 2 path may accept a known failed transmission.
+    # Successful (1), offline (3), duplicate, or missing flags remain blocked.
+    if ($AllowFailedSubmissionRetry -and
+        [regex]::Matches($text, '<div>\s*txtFinalFlag=2txtFinalFlag=\s*</div>').Count -eq 1) {
+        $expected['txtFinalFlag']='2'
     }
     foreach ($key in $expected.Keys) {
         $escaped=[regex]::Escape($key)

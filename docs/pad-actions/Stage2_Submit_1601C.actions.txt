@@ -14,12 +14,9 @@ IF Files.Count = 1 THEN
     UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\''] Text: TIN2 Mode: UIAutomation.PopulateTextMode.Replace
     UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\' 2'] Text: TIN3 Mode: UIAutomation.PopulateTextMode.Replace
     UIAutomation.PopulateTextField.SimulatePopulateTextField TextField: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Edit \'-\' 3'] Text: TIN4 Mode: UIAutomation.PopulateTextMode.Replace
-    UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Text 6'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
-    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%RDOCode%{Enter}''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+    MouseAndKeyboard.SendKeys.FocusAndSendKeysByControl Control: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['RDO dropdown'] TextToSend: $'''{Home}%RDOCode%{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: False
     WAIT 3
-    UIAutomation.Click.Click Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Text'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
-    MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%FormSelectionText%{Enter}
-''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
+    MouseAndKeyboard.SendKeys.FocusAndSendKeysByControl Control: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Form dropdown'] TextToSend: $'''{Home}%FormSelectionText%{Tab}''' DelayBetweenKeystrokes: 50 SendTextAsHardwareKeys: False
     WAIT 3
     UIAutomation.Click.SimulateClick Element: appmask['Window \'Offline eBIRForms Package v7.9.6.1\'']['Approved 1601C saved return']
     ON ERROR REPEAT 2 TIMES WAIT 2
@@ -30,17 +27,31 @@ IF Files.Count = 1 THEN
     WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Edit']) FOR 60
     MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Control}({End})''' DelayBetweenKeystrokes: 100 SendTextAsHardwareKeys: True
     WAIT 2
-    UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'Validate\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
-    UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'OK\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    UIAutomation.GetElementDetails Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'Validate\''] AttributeName: $'''Enabled''' BringToFront: True AttributeValue=> ValidateEnabled
+    IF ValidateEnabled = $'''true''' THEN
+        UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'Validate\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+        UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'OK\''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+    END
     IF ApprovedForSubmission = True THEN
         IF (IsNotEmpty(WorkOrderId) AND IsNotEmpty(ApprovalId) AND IsNotEmpty(ApprovedBy) AND ApprovedForSubmission = True AND SubmissionEnabled = True AND ExpectedFormNumber = '1601Cv2018' AND ExpectedReturnPeriod = ApprovedReturnPeriod AND ExpectedSavedReturnName = ApprovedSavedReturnName) = $'''True''' THEN
             DISABLE Display.ShowMessageDialog.ShowMessage Title: $'''Submission authorized''' Message: $'''Approval was received. The Submit / Final Copy action would run here.
 ''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
             UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'Submit / Final Copy\' 2'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
             WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'OK\' 2']) FOR 30
+            UIAutomation.GetElementDetails Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Text \'Submit  ... bir.gov.ph\''] AttributeName: $'''Own Text''' BringToFront: True AttributeValue=> ConfirmationText
+            SET ResendMode TO $'''RESEND'''
+            IF Contains(ConfirmationText, $'''Please ensure that you have INTERNET access and a VALID email address''', False) THEN
+                SET ResendMode TO $'''NORMAL'''
+            ELSE
+                IF NotContains(ConfirmationText, $'''Resend your Tax Return to eBIRForms Online?''', False) THEN
+                    EXIT Code: 0
+                END
+            END
             UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \'OK\' 3'] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
             DISABLE WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 2551Qv2018\'']['Button \' Ok \' 2']) FOR 30
-            UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \' Ok \''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+            IF ResendMode = $'''NORMAL''' THEN
+                UIAutomation.Click.Click Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Button \' Ok \''] ClickType: UIAutomation.ClickType.LeftClick MousePositionRelativeToElement: UIAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+            END
             WAIT (UIAutomation.WaitForWindowContent.WindowToContainElement Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Text \'Submit  ... bir.gov.ph\'']) FOR 120
             UIAutomation.FocusWindow.Focus Window: appmask['Window \'BIR Form No. 1601Cv2018\'']['Text \'Submit  ... bir.gov.ph\' 2']
             WAIT 2
@@ -48,8 +59,8 @@ IF Files.Count = 1 THEN
             ON ERROR REPEAT 5 TIMES WAIT 3
             END
             UIAutomation.GetElementDetails Element: appmask['Window \'BIR Form No. 1601Cv2018\'']['Text \'Submit  ... bir.gov.ph\''] AttributeName: $'''Own Text''' BringToFront: True AttributeValue=> SubmissionDialogText
-            IF Contains(SubmissionDialogText, $'''Submit Successful.''', False) THEN
-                IF Contains(SubmissionDialogText, $'''Subject to validation by BIR''', False) THEN
+            IF (Contains(SubmissionDialogText, 'Submit Successful. Subject to validation by BIR.', False) OR Contains(SubmissionDialogText, 'Submit Successful!', False)) = $'''True''' THEN
+                IF Contains(SubmissionDialogText, $'''A notification will be sent to your email''', False) THEN
                     SET SuccessScreenshotPathOutput TO SuccessScreenshotPath
                     SET SubmissionStatus TO $'''SUBMITTED_WAITING_FOR_CONFIRMATION'''
                 END
