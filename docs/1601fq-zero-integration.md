@@ -25,3 +25,11 @@ PAD was running its polling loop when inspected. The server showed no RUNNING at
 Next: restore Designer responsiveness; create Stage1_Prepare_1601FQ with form-specific controls; map its inputs/outputs in the parent; verify year/quarter, original/No withholding/Private values, validation, saved XML identity and zero values, and both print pages in order using a test client. Only after that rehearsal should the runtime capability and preparation catalog flag be enabled. A separate Stage 2 implementation and approval are required before submission.
 
 Do not use another form's selectors or mark this integration production-ready based only on the offline API tests. No taxpayer documents, credentials or full PAD UI repositories belong in Git.
+
+## Restart audit — 12 November 2026
+
+Windows System event 1074 records planned servicing/update restarts at 02:29 and 02:31 local time; the current boot began at approximately 02:32 (Asia/Singapore). No server preparation/submission attempt was RUNNING at inspection.
+
+Reopened and copied every action from Stage1_Prepare_1601C (179 actions), Stage2_Submit_1601C (82 actions) and Stage2_Submit_0619E (94 actions). Their complete exports, including UI repositories, exactly matched the saved 11 November exports after trimming outer whitespace. All Designers showed Ready; no actions were edited or run. New local audit exports and a normalized SHA-256 manifest are retained under C:\TaxAutomation-work. The 68 targeted application/regression tests passed again after reboot. Git matched origin/master with no pending code changes before this audit note.
+
+No Stage1_Prepare_1601FQ flow was found in PAD. The unsaved copy dialog did not survive the restart. Reopened the copy dialog; the computer-use helper still redirects keyboard input to the underlying search box. Requested the operator to name/save the copy manually. The new form remains disabled and undeployed until the preparation flow and end-to-end test are complete. No return was submitted during this audit.
